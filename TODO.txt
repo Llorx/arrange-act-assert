@@ -1,0 +1,25 @@
+Los ficheros tendrán un "orden de ejecución"
+Los resultados que se muestran en la interfaz serán según este orden,
+de teste modo los resultados serán determinísticos
+
+
+Cuando un test falla sin capturar (en un root) con process.send
+no falla del todo. Se queda ok.
+Cuando un test falla sin process send,
+entonces el error se eleva
+
+
+De ese modo el _result final del testsuite solo
+tendrá los fallos "fuera de test" (como un require malo)
+
+
+
+
+
+Se añade test
+Inicia ejecución del test
+Eso debería lanzar una promesa
+Esa promesa debería estar "catcheada" de serie
+Cuando termina hace una especie de "collect"
+Si alguna falla, envía error hacia arriba.
+Si falla en root, entonces es cuando mira si es fichero o no, para morir con error no controlado

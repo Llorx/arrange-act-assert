@@ -1,0 +1,34 @@
+{
+  "name": "arrange-act-assert",
+  "version": "0.0.1",
+  "description": "The lightweight \"Act-Arrange-Assert\" oriented testing framework",
+  "main": "lib/",
+  "types": "lib/types",
+  "files": [
+    "lib/",
+    "LICENSE"
+  ],
+  "bin": {
+    "aaa": "lib/cli.js"
+  },
+  "scripts": {
+    "watch": "npm run clean && npx tsc -p tsconfig.json -watch",
+    "build": "npm run clean && npx tsc -p tsconfig.build.json",
+    "build-debug": "npm run clean && npx tsc -p tsconfig.json",
+    "build-test": "npm run clean && npx tsc -p tsconfig.test.json",
+    "js-coverage": "npm run clean && npm run build-test && npm run test",
+    "test": "node --test --experimental-test-coverage --test-coverage-exclude=**/*.test.* --test-coverage-exclude=**/test_folder_mock/**",
+    "test-watch": "node --test --watch",
+    "clean": "node -e \"require('fs').rm('lib', {recursive: true}, O_o => {})\""
+  },
+  "author": "Llorx",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/llorx/arrange-act-assert"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.8",
+    "typescript": "^5.6.3"
+  }
+}
