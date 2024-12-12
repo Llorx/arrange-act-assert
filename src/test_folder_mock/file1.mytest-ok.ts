@@ -1,4 +1,4 @@
-import * as ASSERT from "node:assert";
+import * as Assert from "node:assert";
 
 import test from "..";
 import { assertNumber1 } from "./file1";
@@ -12,7 +12,7 @@ test.describe("assertNumber1", (test) => {
     });
     test("should not work", {
         ASSERT() {
-            ASSERT.throws(() => assertNumber1(2));
+            Assert.throws(() => assertNumber1(2));
         }
     });
 });

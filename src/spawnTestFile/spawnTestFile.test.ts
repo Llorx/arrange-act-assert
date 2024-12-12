@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import * as PATH from "node:path";
-import * as ASSERT from "node:assert";
+import * as Assert from "node:assert";
 
 import { spawnTestFile } from "./spawnTestFile";
 
@@ -9,7 +9,7 @@ test.describe("spawnTestFile", () => {
         await spawnTestFile(PATH.join(__dirname, "spawnTestFile.mock.test.js"), {prefix:[]}, () => {});
     });
     test("Should fail with exit code", async () => {
-        await ASSERT.rejects(
+        await Assert.rejects(
             spawnTestFile(PATH.join(__dirname, "not_test_file.js"),
             {prefix:[]},
             () => {}),
@@ -17,7 +17,7 @@ test.describe("spawnTestFile", () => {
         );
     });
     test("Should spawn with a prefix", async () => {
-        await ASSERT.rejects(
+        await Assert.rejects(
             spawnTestFile(PATH.join(__dirname, "not_test_file.js"),
             {prefix:["--aaa-prefix-test"]},
             () => {}),
