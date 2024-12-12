@@ -1,5 +1,5 @@
 import { test } from "node:test";
-import * as ASSERT from "node:assert";
+import * as Assert from "node:assert";
 import { setTimeout } from "node:timers/promises";
 
 import { isMessage, newRoot } from "./testRunner";
@@ -183,8 +183,8 @@ test.describe("testRunner", async () => {
                     });
                 },
                 ASSERT(act, arrange, after) {
-                    assert("ASSERT ARRANGE", arrange.pepe, 123);
-                    assert("ASSERT ACT", act, 124);
+                    assert("AssertARRANGE", arrange.pepe, 123);
+                    assert("AssertACT", act, 124);
                     return after(act + arrange.pepe, (ass) => {
                         assert("AFTER ASSERT", ass, 123 + 124);
                     });
@@ -231,8 +231,8 @@ test.describe("testRunner", async () => {
                     throw e;
                 }
             }
-            ASSERT.strictEqual(validAfterCalled, 1, "Valid after should be called");
-            ASSERT.strictEqual(invalidAfterCalled, 0, "Invalid afters should not be called");
+            Assert.strictEqual(validAfterCalled, 1, "Valid after should be called");
+            Assert.strictEqual(invalidAfterCalled, 0, "Invalid afters should not be called");
         });
         test("should not call assert 'after' if act fails", async () => {
             let validAfterCalled = 0;
@@ -259,8 +259,8 @@ test.describe("testRunner", async () => {
                     throw e;
                 }
             }
-            ASSERT.strictEqual(validAfterCalled, 2, "Valid after should be called");
-            ASSERT.strictEqual(invalidAfterCalled, 0, "Invalid afters should not be called");
+            Assert.strictEqual(validAfterCalled, 2, "Valid after should be called");
+            Assert.strictEqual(invalidAfterCalled, 0, "Invalid afters should not be called");
         });
         test("should call all 'afters' if arrange_after fails", async () => {
             let validAfterCalled = 0;
@@ -288,7 +288,7 @@ test.describe("testRunner", async () => {
                     throw e;
                 }
             }
-            ASSERT.strictEqual(validAfterCalled, 2, "Valid after should be called");
+            Assert.strictEqual(validAfterCalled, 2, "Valid after should be called");
         });
         test("should call all 'afters' if act_after fails", async () => {
             let validAfterCalled = 0;
@@ -316,7 +316,7 @@ test.describe("testRunner", async () => {
                     throw e;
                 }
             }
-            ASSERT.strictEqual(validAfterCalled, 2, "Valid after should be called");
+            Assert.strictEqual(validAfterCalled, 2, "Valid after should be called");
         });
         test("should call all 'afters' if assert_after fails", async () => {
             let validAfterCalled = 0;
@@ -344,7 +344,7 @@ test.describe("testRunner", async () => {
                     throw e;
                 }
             }
-            ASSERT.strictEqual(validAfterCalled, 2, "Valid after should be called");
+            Assert.strictEqual(validAfterCalled, 2, "Valid after should be called");
         });
     });
     test.describe("Should notify parent process", () => {
@@ -617,7 +617,7 @@ test.describe("testRunner", async () => {
             });
 
             // Assert
-            await ASSERT.rejects(promise, e => e === "ok");
+            await Assert.rejects(promise, e => e === "ok");
             formatter.assert("after test", [{
                 id: "+0",
                 type: MessageType.ADDED,

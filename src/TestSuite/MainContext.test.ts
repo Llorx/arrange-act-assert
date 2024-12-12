@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import * as PATH from "node:path";
-import * as ASSERT from "node:assert";
+import * as Assert from "node:assert";
 
 import { MainContext } from "./MainContext";
 
@@ -16,6 +16,6 @@ test.describe("MainContext", () => {
         const files = await context.getFiles(test_folder_mock);
 
         // Assert
-        ASSERT.deepStrictEqual(files.sort(), Object.values(mockFiles).sort(), "Not received all files");
+        Assert.deepStrictEqual(files.sort(), Object.values(mockFiles).sort(), "Not received all files");
     });
 });

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import * as PATH from "node:path";
-import * as ASSERT from "node:assert";
+import * as Assert from "node:assert";
 
 import { TestSuite } from "./TestSuite";
 
@@ -26,7 +26,7 @@ test.describe("TestSuite", () => {
         try {
             const result = await suite.run();
             // Assert
-            ASSERT.deepStrictEqual(result.files.sort(), [
+            Assert.deepStrictEqual(result.files.sort(), [
                 mockFiles["file1.mytest-ok"],
                 mockFiles["file2.mytest-ok"],
                 ...(invalid ? [mockFiles["file1.mytest-invalid"]] : [])
@@ -38,7 +38,7 @@ test.describe("TestSuite", () => {
         }
     }
     test("should validate parallel option", async () => {
-        ASSERT.throws(() => new TestSuite({
+        Assert.throws(() => new TestSuite({
             parallel: -1
         }), {
             message: "Invalid parallel option. Must be >= 0"
