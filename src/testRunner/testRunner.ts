@@ -36,7 +36,12 @@ export type Summary = {
     assert:SummaryResult;
     describe:SummaryResult;
     total:SummaryResult;
-    failed: {fileId:string, id:number, test:TestInfo, error:string}[]
+    failed:{
+        fileId:string;
+        id:number;
+        test:TestInfo;
+        error:string
+    }[];
 };
 
 let ids = 0;

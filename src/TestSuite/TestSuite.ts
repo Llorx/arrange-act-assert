@@ -4,7 +4,7 @@ import { filterFiles, FilterFilesOptions } from "../filterFiles/filterFiles";
 import { SpawnTestFileOptions } from "../spawnTestFile/spawnTestFile";
 import { parallelize } from "../parallelize/parallelize";
 import { MainContext } from "./MainContext";
-import { newRoot, RunTestFileOptions } from "../testRunner/testRunner";
+import { newRoot, RunTestFileOptions, Summary } from "../testRunner/testRunner";
 import { Formatter } from "../formatters";
 import { DefaultFormatter } from "../formatters/default";
 
@@ -13,6 +13,13 @@ export type TestSuiteOptions = {
     folder:string;
     formatter:Formatter;
 } & FilterFilesOptions & SpawnTestFileOptions & RunTestFileOptions;
+
+export type TestResult = {
+    files:string[];
+    runErrors:unknown[];
+    ok:boolean;
+    summary:Summary;
+};
 
 const DEFAULT_OPTIONS:TestSuiteOptions = {
     parallel: OS.cpus().length,
@@ -39,7 +46,7 @@ export class TestSuite {
         }
         this._root.setFormatter(this.options.formatter);
     }
-    async run() {
+    async run():Promise<TestResult> {
         const result = await this._run();
         await this._root.end();
         this.options.formatter.formatSummary && this.options.formatter.formatSummary(this._root.summary);
