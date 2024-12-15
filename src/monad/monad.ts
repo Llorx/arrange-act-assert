@@ -5,15 +5,33 @@ type MonadObject<T> = {
 } | {
     error:unknown;
 };
-export type Monad<T> = MonadObject<T> & {
-    should: {
+export type Monad<T> = {
+    unwrap():T;
+    match(match:{
+        ok(value:T):void;
+        error(error:unknown):void;
+    }):void;
+    should:{
         ok(value:T):void;
         error(error:Assert.AssertPredicate):void;
     }
 };
 function monadify<T>(res:MonadObject<T>):Monad<T> {
     return {
-        ...res,
+        unwrap() {
+            if ("ok" in res) {
+                return res.ok;
+            } else {
+                throw res.error;
+            }
+        },
+        match(match) {
+            if ("ok" in res) {
+                match.ok(res.ok);
+            } else {
+                match.error(res.error);
+            }
+        },
         should: {
             ok(value) {
                 if ("ok" in res) {
