@@ -307,3 +307,31 @@ type SummaryResult = { // Self-explanatory
     error:number;
 };
 ```
+To assert errors, you can use the `monad` and `asyncMonad` utils:
+```typescript
+import { test, monad, asyncMonad } from "arrange-act-assert";
+
+import { thing, asyncThing } from "./myThing";
+
+test("Should throw an error when invalid arguments", {
+    ACT() {
+        return monad(() => thing(-1));
+    },
+    ASSERT(res) {
+        res.should.error({
+            message: "Argument must be >= 0"
+        });
+    }
+});
+test("Should throw an error when invalid arguments in async function", {
+    async ACT() {
+        return await asyncMonad(async () => await thing(-1));
+    },
+    ASSERT(res) {
+        res.should.error({
+            message: "Argument must be >= 0"
+        });
+    }
+});
+```
+They will return a `Monad` object with the properties `ok` and `error` and the methods `should.ok(VALUE)` and `should.error(ERROR)`. The error validation is done using the [NodeJS Assert.throws() error argument](https://nodejs.org/api/assert.html#assertthrowsfn-error-message).
