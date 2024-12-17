@@ -1,27 +1,33 @@
-import { test } from "node:test";
-import * as PATH from "node:path";
-import * as Assert from "node:assert";
+import * as PATH from "path";
+
+import { test, asyncMonad } from "arrange-act-assert";
 
 import { spawnTestFile } from "./spawnTestFile";
 
-test.describe("spawnTestFile", () => {
-    test("Should spawn new process", async () => {
-        await spawnTestFile(PATH.join(__dirname, "spawnTestFile.mock.test.js"), {prefix:[]}, () => {});
+test.describe("spawnTestFile", (test) => {
+    test("Should spawn new process", {
+        async ACT() {
+            await spawnTestFile(PATH.join(__dirname, "spawnTestFile.mock.test.js"), {prefix:[]}, () => {});
+        }
     });
-    test("Should fail with exit code", async () => {
-        await Assert.rejects(
-            spawnTestFile(PATH.join(__dirname, "not_test_file.js"),
-            {prefix:[]},
-            () => {}),
-            e => e instanceof Error && e.message.includes("Cannot find module")
-        );
+    test("Should fail with exit code", {
+        ACT() {
+            return asyncMonad(() => spawnTestFile(PATH.join(__dirname, "not_test_file.js"), {prefix:[]}, () => {}));
+        },
+        ASSERT(res) {
+            res.should.error({
+                message: /Cannot find module/
+            });
+        }
     });
-    test("Should spawn with a prefix", async () => {
-        await Assert.rejects(
-            spawnTestFile(PATH.join(__dirname, "not_test_file.js"),
-            {prefix:["--aaa-prefix-test"]},
-            () => {}),
-            e => e instanceof Error && e.message.includes("bad option: --aaa-prefix-test")
-        );
+    test("Should spawn with a prefix", {
+        ACT() {
+            return asyncMonad(() => spawnTestFile(PATH.join(__dirname, "not_test_file.js"), {prefix:["--aaa-prefix-test"]}, () => {}));
+        },
+        ASSERT(res) {
+            res.should.error({
+                message: /bad option: --aaa-prefix-test/
+            });
+        }
     });
 });

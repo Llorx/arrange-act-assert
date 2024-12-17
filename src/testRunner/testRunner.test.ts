@@ -1,6 +1,8 @@
-import { test } from "node:test";
-import * as Assert from "node:assert";
-import { setTimeout } from "node:timers/promises";
+// import { test } from "test";
+import * as Assert from "assert";
+import { setTimeout } from "timers/promises";
+
+import test, { After, asyncMonad, TestFunction } from "arrange-act-assert";
 
 import { isMessage, newRoot } from "./testRunner";
 import { MessageType, MessageFileStart, MessageFileEnd, MessageAdded, MessageStart, MessageEnd, Messages, TestType } from "../formatters";
@@ -9,31 +11,25 @@ import { mockFiles } from "../test_folder_mock";
 
 type CheckMessages = MessageFileStart | MessageFileEnd | ({ id:string } & ((Omit<MessageAdded, "id"|"test"> & { test: { parentId:string } & Omit<MessageAdded["test"], "parentId"> }) | Omit<MessageStart, "id"> | Omit<MessageEnd, "id">));
 
-test.describe("testRunner", async () => {
-    // Arrange
-    function assert(desc:string, a:unknown, b:unknown) {
-        if (a !== b) {
-            console.log("expected:", a);
-            console.log("found:", b);
-            throw new Error(`${desc}: Expected ${a} but found ${b}`);
-        }
+test.describe("testRunner", (test) => {
+    function afterNewRoot(after:After) {
+        after(process.env.AAA_TEST_FILE, oldAAA => {
+            process.env.AAA_TEST_FILE = oldAAA
+        });
+        process.env.AAA_TEST_FILE = "";
+        return newRoot();
     }
-    function stepped(start = 0) {
-        let step = start;
+    function stepped(steps:number[] = []) {
         return {
             clone() {
-                return stepped(step);
+                return stepped(steps.slice());
             },
             up(value:number) {
-                if (step !== value) {
-                    throw new Error(`Step should be ${value} before increasing. Found ${step}`);
-                }
-                step++;
+                steps.push(value);
             },
             assert(value:number) {
-                if (step !== value) {
-                    throw new Error(`Step should be ${value}. Found ${step}`);
-                }
+                const arr = new Array(value + 1).fill(0).map((_, i) => i);
+                Assert.deepStrictEqual(steps, arr);
             }
         }
     }
@@ -49,7 +45,7 @@ test.describe("testRunner", async () => {
         return {
             cb: cb,
             messages: messages,
-            assert(type:string, check:(CheckMessages)[]) {
+            assert(check:(CheckMessages)[]) {
                 for (const msg of check) {
                     if ("id" in msg) {
                         msg.id = eval(`${msg.id.startsWith("+") ? firstId : ""}${msg.id}`);
@@ -58,43 +54,22 @@ test.describe("testRunner", async () => {
                         }
                     }
                 }
-                if (JSON.stringify(messages) !== JSON.stringify(check)) {
-                    console.log("Expected:", check);
-                    console.log("Found:", messages);
-                    throw new Error(`${type} logs are different`);
-                }
+                Assert.deepStrictEqual(messages, check);
                 messages.splice(0);
             }
         };
     }
-    await test.describe("Should run in order", async () => {
-        test("with X_AFTER", async () => {
-            const step = stepped();
-            const myTest = newRoot();
-            await myTest.test("Should run in order with AFTER_X", {
-                ARRANGE(after) {
-                    step.up(0);
-                    after(null, () => step.up(5));
-                },
-                ACT(_arrange, after) {
-                    step.up(1);
-                    after(null, () => step.up(4));
-                },
-                ASSERT(_arrange, _act, after) {
-                    step.up(2);
-                    after(null, () => step.up(3));
-                }
-            });
-        });
-        test("within describes", async () => {
-            const step = stepped();
-            const myTest = newRoot();
-            const descDelayed = myTest.describe("describe delayed", async (test) => {
-                await setTimeout(10);
-                await test.test("test delayed", {
-                    ARRANGE(after) {
+    test.describe("Should run in order", (test) => {
+        test("ARRANGE -> ACT -> ASSERT", {
+            ARRANGE(after) {
+                const step = stepped();
+                const myTest = afterNewRoot(after);
+                return { step, myTest };
+            },
+            async ACT({ myTest, step }) {
+                await myTest.test("Should run in order", {
+                    ARRANGE() {
                         step.up(0);
-                        after(null, () => step.up(3))
                     },
                     ACT() {
                         step.up(1);
@@ -103,256 +78,677 @@ test.describe("testRunner", async () => {
                         step.up(2);
                     }
                 });
-            });
-            const descDelayed2 = myTest.describe("describe delayed 2", (test) => {
-                test.test("test delayed", {
-                    ARRANGE(after) {
-                        step.up(4);
-                        after(null, () => step.up(7))
-                    },
-                    async ACT() {
-                        step.up(5);
-                        await setTimeout(10)
-                    },
-                    ASSERT() {
-                        step.up(6);
-                    }
-                });
-            });
-            const desc = myTest.describe("describe", (test) => {
-                test.test("test delayed", {
-                    ARRANGE(after) {
-                        step.up(8);
-                        after(null, () => step.up(11))
-                    },
-                    ACT() {
-                        step.up(9);
-                    },
-                    ASSERT() {
-                        step.up(10);
-                    }
-                });
-            });
-            await Promise.all([desc, descDelayed2, descDelayed]);
+            },
+            ASSERT(_, { step }) {
+                step.assert(2);
+            }
         });
-        test("now allow tests after finishing", async () => {
-            // Act
-            let errored = false;
-            const myTest = newRoot();
-            await myTest.describe("describe", test => {
-                test("empty", {
-                    ASSERT() {}
+        test("ARRANGE -> ACT -> ASSERT and reversed afters", {
+            ARRANGE(after) {
+                const step = stepped();
+                const myTest = afterNewRoot(after);
+                return { step, myTest };
+            },
+            async ACT({ myTest, step }) {
+                await myTest.test("Should run in order with after", {
+                    ARRANGE(after) {
+                        step.up(0);
+                        after(null, () => step.up(5));
+                    },
+                    ACT(_arrange, after) {
+                        step.up(1);
+                        after(null, () => step.up(4));
+                    },
+                    ASSERT(_arrange, _act, after) {
+                        step.up(2);
+                        after(null, () => step.up(3));
+                    }
                 });
-                setTimeout(10).then(() => {
-                    test.test("test", {
-                        ARRANGE() {
-                            return 0;
+            },
+            ASSERT(_, { step }) {
+                step.assert(5);
+            }
+        });
+        test("within describes", {
+            ARRANGE(after) {
+                const step = stepped();
+                const myTest = afterNewRoot(after);
+                return { step, myTest };
+            },
+            async ACT({ step, myTest }) {
+                const descDelayed1 = myTest.describe("describe delayed", async (test) => {
+                    await setTimeout(10);
+                    await test.test("test delayed", {
+                        ARRANGE(after) {
+                            step.up(0);
+                            after(null, () => step.up(3))
                         },
                         ACT() {
-                            return 0;
+                            step.up(1);
                         },
                         ASSERT() {
-                            return "ok";
+                            step.up(2);
                         }
-                    }).catch(() => {
-                        errored = true;
                     });
                 });
-            });
-            await setTimeout(50);
-
-            // Assert
-            if (!errored) {
-                throw new Error("Should error if adding test after finishing");
+                const descDelayed2 = myTest.describe("describe delayed 2", (test) => {
+                    test.test("test delayed", {
+                        ARRANGE(after) {
+                            step.up(4);
+                            after(null, () => step.up(7))
+                        },
+                        async ACT() {
+                            step.up(5);
+                            await setTimeout(10)
+                        },
+                        ASSERT() {
+                            step.up(6);
+                        }
+                    });
+                });
+                const desc = myTest.describe("describe", (test) => {
+                    test.test("test delayed", {
+                        ARRANGE(after) {
+                            step.up(8);
+                            after(null, () => step.up(11))
+                        },
+                        ACT() {
+                            step.up(9);
+                        },
+                        ASSERT() {
+                            step.up(10);
+                        }
+                    });
+                });
+                await Promise.all([desc, descDelayed1, descDelayed2]);
+            },
+            ASSERT(_, { step }) {
+                step.assert(11);
+            }
+        });
+        test("not allow tests after finishing", {
+            async ARRANGE() {
+                const resolvedTest = await new Promise<TestFunction>((resolve) => {
+                    newRoot().describe("", test => {
+                        test("empty", {
+                            ASSERT() {}
+                        });
+                        resolve(test);
+                    });
+                });
+                await setTimeout(10); // Wait for "finally" resolve
+                return resolvedTest;
+            },
+            async ACT(resolvedTest) {
+                return await asyncMonad(() => resolvedTest.test("test", {
+                    ARRANGE() {
+                        return 0;
+                    },
+                    ACT() {
+                        return 0;
+                    },
+                    ASSERT() {
+                        return "ok";
+                    }
+                }));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /This test is closed/
+                });
             }
         });
     });
-    test.describe("Should infer data", () => {
-        test("from arrange to act, assert and after", async () => {
-            const myTest = newRoot();
-            await myTest.test("test", {
+    test.describe("Should infer data", (test) => {
+        test.describe("from arrange", (test) => {
+            test("to act", {
                 ARRANGE(after) {
-                    return after({ pepe: 123 }, arrange => {
-                        assert("AFTER ARRANGE", arrange.pepe, 123);
-                    });
+                    return afterNewRoot(after);
                 },
-                ACT(arrange, after) {
-                    assert("ACT", arrange.pepe, 123);
-                    return after(arrange.pepe + 1, (act) => {
-                        assert("AFTER ACT", act, 124);
+                async ACT(myTest) {
+                    const res:{act:number|null, assert:number|null} = {
+                        act: null,
+                        assert: null
+                    };
+                    await myTest.test("", {
+                        ARRANGE() {
+                            return { pepe: 123 };
+                        },
+                        ACT(arrange) {
+                            res.act = arrange.pepe;
+                        }
                     });
+                    return res;
                 },
-                ASSERT(act, arrange, after) {
-                    assert("AssertARRANGE", arrange.pepe, 123);
-                    assert("AssertACT", act, 124);
-                    return after(act + arrange.pepe, (ass) => {
-                        assert("AFTER ASSERT", ass, 123 + 124);
+                ASSERT(res) {
+                    Assert.deepStrictEqual(res, {
+                        act: 123,
+                        assert: null
+                    });
+                }
+            });
+            test("to assert", {
+                ARRANGE(after) {
+                    return afterNewRoot(after);
+                },
+                async ACT(myTest) {
+                    const res:{act:number|null, assert:number|null} = {
+                        act: null,
+                        assert: null
+                    };
+                    await myTest.test("", {
+                        ARRANGE() {
+                            return { pepe: 123 };
+                        },
+                        ASSERT(_, arrange) {
+                            res.assert = arrange.pepe;
+                        }
+                    });
+                    return res;
+                },
+                ASSERT(res) {
+                    Assert.deepStrictEqual(res, {
+                        act: null,
+                        assert: 123
+                    });
+                }
+            });
+            test("to act and assert", {
+                ARRANGE(after) {
+                    return afterNewRoot(after);
+                },
+                async ACT(myTest) {
+                    const res:{act:number|null, assert:number|null} = {
+                        act: null,
+                        assert: null
+                    };
+                    await myTest.test("", {
+                        ARRANGE() {
+                            return { pepe: 123 };
+                        },
+                        ACT(arrange) {
+                            res.act = arrange.pepe;
+                        },
+                        ASSERT(_, arrange) {
+                            res.assert = arrange.pepe;
+                        }
+                    });
+                    return res;
+                },
+                ASSERT(res) {
+                    Assert.deepStrictEqual(res, {
+                        act: 123,
+                        assert: 123
+                    });
+                }
+            });
+            test("to after", {
+                ARRANGE(after) {
+                    return afterNewRoot(after);
+                },
+                async ACT(myTest) {
+                    const res:{act:number|null, assert:number|null, after:number|null} = {
+                        act: null,
+                        assert: null,
+                        after: null
+                    };
+                    await myTest.test("", {
+                        ARRANGE(after) {
+                            return after({ pepe: 123 }, arrange => {
+                                res.after = arrange.pepe
+                            });
+                        }
+                    });
+                    return res;
+                },
+                ASSERT(res) {
+                    Assert.deepStrictEqual(res, {
+                        act: null,
+                        assert: null,
+                        after: 123
+                    });
+                }
+            });
+            test("to after and act", {
+                ARRANGE(after) {
+                    return afterNewRoot(after);
+                },
+                async ACT(myTest) {
+                    const res:{act:number|null, assert:number|null, after:number|null} = {
+                        act: null,
+                        assert: null,
+                        after: null
+                    };
+                    await myTest.test("", {
+                        ARRANGE(after) {
+                            return after({ pepe: 123 }, arrange => {
+                                res.after = arrange.pepe
+                            });
+                        },
+                        ACT(arrange) {
+                            res.act = arrange.pepe;
+                        }
+                    });
+                    return res;
+                },
+                ASSERT(res) {
+                    Assert.deepStrictEqual(res, {
+                        act: 123,
+                        assert: null,
+                        after: 123
+                    });
+                }
+            });
+            test("to after and assert", {
+                ARRANGE(after) {
+                    return afterNewRoot(after);
+                },
+                async ACT(myTest) {
+                    const res:{act:number|null, assert:number|null, after:number|null} = {
+                        act: null,
+                        assert: null,
+                        after: null
+                    };
+                    await myTest.test("", {
+                        ARRANGE(after) {
+                            return after({ pepe: 123 }, arrange => {
+                                res.after = arrange.pepe
+                            });
+                        },
+                        ASSERT(_, arrange) {
+                            res.assert = arrange.pepe;
+                        }
+                    });
+                    return res;
+                },
+                ASSERT(res) {
+                    Assert.deepStrictEqual(res, {
+                        act: null,
+                        assert: 123,
+                        after: 123
+                    });
+                }
+            });
+            test("to after, act and assert", {
+                ARRANGE(after) {
+                    return afterNewRoot(after);
+                },
+                async ACT(myTest) {
+                    const res:{act:number|null, assert:number|null, after:number|null} = {
+                        act: null,
+                        assert: null,
+                        after: null
+                    };
+                    await myTest.test("", {
+                        ARRANGE(after) {
+                            return after({ pepe: 123 }, arrange => {
+                                res.after = arrange.pepe
+                            });
+                        },
+                        ACT(arrange) {
+                            res.act = arrange.pepe;
+                        },
+                        ASSERT(_, arrange) {
+                            res.assert = arrange.pepe;
+                        }
+                    });
+                    return res;
+                },
+                ASSERT(res) {
+                    Assert.deepStrictEqual(res, {
+                        act: 123,
+                        assert: 123,
+                        after: 123
                     });
                 }
             });
         });
-    });
-    test.describe("Error managing", () => {
-        test("should throw error if describe fails", async () => {
-            const myTest = newRoot();
-            try {
-                await myTest.describe("describe", () => {
-                    throw "ok";
-                });
-                throw new Error("Should throw error");
-            } catch (e) {
-                if (e !== "ok") {
-                    throw e;
+        test.describe("from act", (test) => {
+            test("to assert", {
+                ARRANGE(after) {
+                    return afterNewRoot(after);
+                },
+                async ACT(myTest) {
+                    const res:{assert:number|null} = {
+                        assert: null
+                    };
+                    await myTest.test("", {
+                        ACT() {
+                            return { pepe: 123 };
+                        },
+                        ASSERT(arrange) {
+                            res.assert = arrange.pepe;
+                        }
+                    });
+                    return res;
+                },
+                ASSERT(res) {
+                    Assert.deepStrictEqual(res, {
+                        assert: 123
+                    });
                 }
+            });
+            test("to after", {
+                ARRANGE(after) {
+                    return afterNewRoot(after);
+                },
+                async ACT(myTest) {
+                    const res:{assert:number|null, after:number|null} = {
+                        assert: null,
+                        after: null
+                    };
+                    await myTest.test("", {
+                        ACT(_, after) {
+                            return after({ pepe: 123 }, arrange => {
+                                res.after = arrange.pepe
+                            });
+                        }
+                    });
+                    return res;
+                },
+                ASSERT(res) {
+                    Assert.deepStrictEqual(res, {
+                        assert: null,
+                        after: 123
+                    });
+                }
+            });
+            test("to after and assert", {
+                ARRANGE(after) {
+                    return afterNewRoot(after);
+                },
+                async ACT(myTest) {
+                    const res:{assert:number|null, after:number|null} = {
+                        assert: null,
+                        after: null
+                    };
+                    await myTest.test("", {
+                        ACT(_, after) {
+                            return after({ pepe: 123 }, arrange => {
+                                res.after = arrange.pepe
+                            });
+                        },
+                        ASSERT(act) {
+                            res.assert = act.pepe;
+                        }
+                    });
+                    return res;
+                },
+                ASSERT(res) {
+                    Assert.deepStrictEqual(res, {
+                        assert: 123,
+                        after: 123
+                    });
+                }
+            });
+        });
+        test("from arrange and act to act and assert", {
+            ARRANGE(after) {
+                return afterNewRoot(after);
+            },
+            async ACT(myTest) {
+                const res:{act:number|null, assertAct:number|null, assertArrange:number|null} = {
+                    act: null,
+                    assertAct: null,
+                    assertArrange: null,
+                };
+                await myTest.test("", {
+                    ARRANGE() {
+                        return { pepe: 123 };
+                    },
+                    ACT(arrange) {
+                        res.act = arrange.pepe;
+                        return { pepe2: 124 }
+                    },
+                    ASSERT(act, arrange) {
+                        res.assertAct = act.pepe2;
+                        res.assertArrange = arrange.pepe;
+                    }
+                });
+                return res;
+            },
+            ASSERT(res) {
+                Assert.deepStrictEqual(res, {
+                    act: 123,
+                    assertAct: 124,
+                    assertArrange: 123
+                });
             }
         });
-        test("should not call act/assert 'after' if arrange fails", async () => {
-            let validAfterCalled = 0;
-            let invalidAfterCalled = 0;
-            const myTest = newRoot();
-            try {
-                await myTest.test("test", {
+        test("from assert to after", {
+            ARRANGE(after) {
+                return afterNewRoot(after);
+            },
+            async ACT(myTest) {
+                const res:{after:number|null} = {
+                    after: null
+                };
+                await myTest.test("", {
+                    ASSERT(_act, _arr, after) {
+                        after({ pepe: 123 }, assert => {
+                            res.after = assert.pepe;
+                        })
+                    }
+                });
+                return res;
+            },
+            ASSERT(res) {
+                Assert.deepStrictEqual(res, {
+                    after: 123
+                });
+            }
+        });
+    });
+    test.describe("Error managing", (test) => {
+        test("should throw error if describe fails", {
+            ARRANGE(after) {
+                return afterNewRoot(after);
+            },
+            ACT(myTest) {
+                const promise = myTest.describe("describe", () => {
+                    throw new Error("ok");
+                });
+                return { promise };
+            },
+            async ASSERT({ promise }) {
+                await Assert.rejects(promise, {
+                    message: "ok"
+                });
+            }
+        });
+        test("should not call act/assert 'after()' if arrange fails", {
+            ARRANGE(after) {
+                return afterNewRoot(after);
+            },
+            async ACT(myTest) {
+                const res = {
+                    valid: 0,
+                    invalid: 0
+                };
+                await asyncMonad(() => myTest.test("test", {
                     ARRANGE(after) {
-                        after(null, () => validAfterCalled++);
+                        after(null, () => res.valid++);
                         throw "ok";
                     },
                     ACT(_arr, after) {
-                        after(null, () => invalidAfterCalled++);
-                        return 0;
+                        after(null, () => res.invalid++);
                     },
                     ASSERT(_act, _arr, after) {
-                        after(null, () => invalidAfterCalled++);
-                        return 0;
+                        after(null, () => res.invalid++);
                     }
+                }));
+                return res;
+            },
+            ASSERT(res) {
+                Assert.deepStrictEqual(res, {
+                    valid: 1,
+                    invalid: 0
                 });
-                throw new Error("Should throw error");
-            } catch (e) {
-                if (e !== "ok") {
-                    throw e;
-                }
             }
-            Assert.strictEqual(validAfterCalled, 1, "Valid after should be called");
-            Assert.strictEqual(invalidAfterCalled, 0, "Invalid afters should not be called");
         });
-        test("should not call assert 'after' if act fails", async () => {
-            let validAfterCalled = 0;
-            let invalidAfterCalled = 0;
-            const myTest = newRoot();
-            try {
-                await myTest.test("test", {
+        test("should not call assert 'after' if act fails", {
+            ARRANGE(after) {
+                return afterNewRoot(after);
+            },
+            async ACT(myTest) {
+                const res = {
+                    valid: 0,
+                    invalid: 0
+                };
+                await asyncMonad(() => myTest.test("test", {
                     ARRANGE(after) {
-                        after(null, () => validAfterCalled++);
-                        return 0;
+                        after(null, () => res.valid++);
                     },
                     ACT(_arr, after) {
-                        after(null, () => validAfterCalled++);
+                        after(null, () => res.valid++);
                         throw "ok";
                     },
                     ASSERT(_act, _arr, after) {
-                        after(null, () => invalidAfterCalled++);
-                        return 0;
+                        after(null, () => res.invalid++);
                     }
+                }));
+                return res;
+            },
+            ASSERT(res) {
+                Assert.deepStrictEqual(res, {
+                    valid: 2,
+                    invalid: 0
                 });
-                throw new Error("Should throw error");
-            } catch (e) {
-                if (e !== "ok") {
-                    throw e;
-                }
             }
-            Assert.strictEqual(validAfterCalled, 2, "Valid after should be called");
-            Assert.strictEqual(invalidAfterCalled, 0, "Invalid afters should not be called");
         });
-        test("should call all 'afters' if arrange_after fails", async () => {
-            let validAfterCalled = 0;
-            const myTest = newRoot();
-            try {
-                await myTest.test("test", {
+        test("should call all 'afters' if arrange_after fails", {
+            ARRANGE(after) {
+                return afterNewRoot(after);
+            },
+            async ACT(myTest) {
+                const res = {
+                    valid: 0,
+                    invalid: 0
+                };
+                await asyncMonad(() => myTest.test("test", {
+                    ARRANGE(after) {
+                        after(null, () => res.valid++);
+                    },
+                    ACT(_arr, after) {
+                        after(null, () => res.valid++);
+                    },
+                    ASSERT(_act, _arr, after) {
+                        after(null, () => res.valid++);
+                        throw "ok";
+                    }
+                }));
+                return res;
+            },
+            ASSERT(res) {
+                Assert.deepStrictEqual(res, {
+                    valid: 3,
+                    invalid: 0
+                });
+            }
+        });
+        test("should call all 'afters' if arrange_after fails", {
+            ARRANGE(after) {
+                return afterNewRoot(after);
+            },
+            async ACT(myTest) {
+                const res = {
+                    valid: 0,
+                    invalid: 0
+                };
+                await asyncMonad(() => myTest.test("test", {
                     ARRANGE(after) {
                         after(null, () => {
                             throw "ok";
                         });
-                        return 0;
                     },
                     ACT(_arr, after) {
-                        after(null, () => validAfterCalled++);
-                        return 0;
+                        after(null, () => res.valid++);
                     },
                     ASSERT(_act, _arr, after) {
-                        after(null, () => validAfterCalled++);
-                        return 0;
+                        after(null, () => res.valid++);
                     }
+                }));
+                return res;
+            },
+            ASSERT(res) {
+                Assert.deepStrictEqual(res, {
+                    valid: 2,
+                    invalid: 0
                 });
-                throw new Error("Should throw error");
-            } catch (e) {
-                if (e !== "ok") {
-                    throw e;
-                }
             }
-            Assert.strictEqual(validAfterCalled, 2, "Valid after should be called");
         });
-        test("should call all 'afters' if act_after fails", async () => {
-            let validAfterCalled = 0;
-            const myTest = newRoot();
-            try {
-                await myTest.test("test", {
+        test("should call all 'afters' if act_after fails", {
+            ARRANGE(after) {
+                return afterNewRoot(after);
+            },
+            async ACT(myTest) {
+                const res = {
+                    valid: 0,
+                    invalid: 0
+                };
+                await asyncMonad(() => myTest.test("test", {
                     ARRANGE(after) {
-                        after(null, () => validAfterCalled++);
-                        return 0;
+                        after(null, () => res.valid++);
                     },
                     ACT(_arr, after) {
                         after(null, () => {
                             throw "ok";
                         });
-                        return 0;
                     },
                     ASSERT(_act, _arr, after) {
-                        after(null, () => validAfterCalled++);
-                        return 0;
+                        after(null, () => res.valid++);
                     }
+                }));
+                return res;
+            },
+            ASSERT(res) {
+                Assert.deepStrictEqual(res, {
+                    valid: 2,
+                    invalid: 0
                 });
-                throw new Error("Should throw error");
-            } catch (e) {
-                if (e !== "ok") {
-                    throw e;
-                }
             }
-            Assert.strictEqual(validAfterCalled, 2, "Valid after should be called");
         });
-        test("should call all 'afters' if assert_after fails", async () => {
-            let validAfterCalled = 0;
-            const myTest = newRoot();
-            try {
-                await myTest.test("test", {
+        test("should call all 'afters' if assert_after fails", {
+            ARRANGE(after) {
+                return afterNewRoot(after);
+            },
+            async ACT(myTest) {
+                const res = {
+                    valid: 0,
+                    invalid: 0
+                };
+                await asyncMonad(() => myTest.test("test", {
                     ARRANGE(after) {
-                        after(null, () => validAfterCalled++);
-                        return 0;
+                        after(null, () => res.valid++);
                     },
                     ACT(_arr, after) {
-                        after(null, () => validAfterCalled++);
-                        return 0;
+                        after(null, () => res.valid++);
                     },
                     ASSERT(_act, _arr, after) {
                         after(null, () => {
                             throw "ok";
                         });
-                        return 0;
                     }
+                }));
+                return res;
+            },
+            ASSERT(res) {
+                Assert.deepStrictEqual(res, {
+                    valid: 2,
+                    invalid: 0
                 });
-                throw new Error("Should throw error");
-            } catch (e) {
-                if (e !== "ok") {
-                    throw e;
-                }
             }
-            Assert.strictEqual(validAfterCalled, 2, "Valid after should be called");
         });
     });
-    test.describe("Should notify parent process", () => {
-        // Arrange
-        function getProcessSend() {
-            const oldAAA = process.env.AAA_TEST_FILE;
+    test.describe("Should notify parent process", (test) => {
+        function getProcessSend(after:After) {
+            after(process.env.AAA_TEST_FILE, oldAAA => {
+                process.env.AAA_TEST_FILE = oldAAA
+            });
             process.env.AAA_TEST_FILE = "1";
-            const oldSend = process.send;
+            after(process.send, oldSend => {
+                process.send = oldSend
+            });
             const formatter = getFormatter();
             process.send = (msg:unknown) => {
                 if (isMessage(msg)) {
@@ -360,94 +756,117 @@ test.describe("testRunner", async () => {
                 }
                 return true;
             };
-            test.after(() => {
-                process.env.AAA_TEST_FILE = oldAAA;
-                process.send = oldSend;
-            });
             const root = newRoot();
             return { formatter, root };
         }
-        test.test("should work if no existing process", async () => {
-            // Arrange
-            const myTest = newRoot();
-            const oldProcess = global.process;
-            global.process = undefined as any;
-            test.after(() => {
-                global.process = oldProcess;
-                newRoot();
-            });
-
-            // Act/Assert (should not crash)
-            await myTest.test("test", {
-                ARRANGE() {
-                    return 0;
-                },
-                ACT() {
-                    return 0;
-                },
-                ASSERT() {
-                    return "ok";
-                }
-            });
+        test.test("process.send is called", {
+            ARRANGE(after) {
+                return getProcessSend(after);
+            },
+            async ACT({ root }) {
+                await root.test("test", {
+                    ARRANGE() {
+                        return 0;
+                    },
+                    ACT() {
+                        return 0;
+                    },
+                    ASSERT() {
+                        return "ok";
+                    }
+                });
+            },
+            ASSERT(_, { formatter, root }) {
+                formatter.assert([{
+                    id: "+0",
+                    type: MessageType.ADDED,
+                    test: {
+                        parentId: String(root.id),
+                        description: "test",
+                        type: TestType.TEST
+                    }
+                }, {
+                    id: "+0",
+                    type: MessageType.START
+                }, {
+                    id: "+1",
+                    type: MessageType.ADDED,
+                    test: {
+                        parentId: "+0",
+                        description: "",
+                        type: TestType.ASSERT
+                    }
+                }, {
+                    id: "+1",
+                    type: MessageType.START
+                }, {
+                    id: "+1",
+                    type: MessageType.END
+                }, {
+                    id: "+0",
+                    type: MessageType.END
+                }]);
+            }
         });
-
-        test.test("process.send is called", async () => {
-            // Arrange
-            const { formatter, root } = getProcessSend();
-
-            // Act
-            await root.test("test", {
-                ARRANGE() {
-                    return 0;
-                },
-                ACT() {
-                    return 0;
-                },
-                ASSERT() {
-                    return "ok";
-                }
-            });
-
-            // Assert
-            formatter.assert("after test", [{
-                id: "+0",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: String(root.id),
-                    description: "test",
-                    type: TestType.TEST
-                }
-            }, {
-                id: "+0",
-                type: MessageType.START
-            }, {
-                id: "+1",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: "+0",
-                    description: "",
-                    type: TestType.ASSERT
-                }
-            }, {
-                id: "+1",
-                type: MessageType.START
-            }, {
-                id: "+1",
-                type: MessageType.END
-            }, {
-                id: "+0",
-                type: MessageType.END
-            }]);
+        test.test("end is called only once if a test is added after finish", {
+            ARRANGE(after) {
+                return getProcessSend(after);
+            },
+            async ACT({ root }) {
+                await root.describe("describe", test => {
+                    setTimeout(10).then(() => {
+                        test.test("test", {
+                            ARRANGE() {
+                                return 0;
+                            },
+                            ACT() {
+                                return 0;
+                            },
+                            ASSERT() {
+                                return "ok";
+                            }
+                        }).catch(() => {});
+                    });
+                });
+                await setTimeout(50);
+            },
+            ASSERT(_, { formatter, root }) {
+                formatter.assert([{
+                    id: "+0",
+                    type: MessageType.ADDED,
+                    test: {
+                        parentId: String(root.id),
+                        description: "describe",
+                        type: TestType.DESCRIBE
+                    }
+                }, {
+                    id: "+0",
+                    type: MessageType.START
+                }, {
+                    id: "+0",
+                    type: MessageType.END
+                }]);
+            }
         });
-
-        test.test("end is called only once if a test is added after finish", async () => {
-            // Arrange
-            const { formatter, root } = getProcessSend();
-
-            // Act
-            await root.describe("describe", test => {
-                setTimeout(10).then(() => {
-                    test.test("test", {
+        test.test("describe end is called only after tests are ended", {
+            ARRANGE(after) {
+                return getProcessSend(after);
+            },
+            async ACT({ root }) {
+                await root.describe("describe", test => {
+                    test.test("test1", {
+                        ARRANGE() {
+                            return 0;
+                        },
+                        ACT() {
+                            return 0;
+                        },
+                        async ASSERT() {
+                            await setTimeout(20);
+                            return "ok";
+                        }
+                    }).catch(() => {});
+                    test.test("test2", {
                         ARRANGE() {
                             return 0;
                         },
@@ -459,356 +878,309 @@ test.describe("testRunner", async () => {
                         }
                     }).catch(() => {});
                 });
-            });
-            await setTimeout(50);
-
-            // Assert
-            formatter.assert("after test", [{
-                id: "+0",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: String(root.id),
-                    description: "describe",
-                    type: TestType.DESCRIBE
-                }
-            }, {
-                id: "+0",
-                type: MessageType.START
-            }, {
-                id: "+0",
-                type: MessageType.END
-            }]);
+                await setTimeout(50);
+            },
+            ASSERT(_, { formatter, root }) {
+                formatter.assert([{
+                    id: "+0",
+                    type: MessageType.ADDED,
+                    test: {
+                        parentId: String(root.id),
+                        description: "describe",
+                        type: TestType.DESCRIBE
+                    }
+                }, {
+                    id: "+0",
+                    type: MessageType.START
+                }, {
+                    id: "+1",
+                    type: MessageType.ADDED,
+                    test: {
+                        parentId: "+0",
+                        description: "test1",
+                        type: TestType.TEST
+                    }
+                }, {
+                    id: "+1",
+                    type: MessageType.START
+                }, {
+                    id: "+2",
+                    type: MessageType.ADDED,
+                    test: {
+                        parentId: "+0",
+                        description: "test2",
+                        type: TestType.TEST
+                    }
+                }, {
+                    id: "+3",
+                    type: MessageType.ADDED,
+                    test: {
+                        parentId: "+1",
+                        description: "",
+                        type: TestType.ASSERT
+                    }
+                }, {
+                    id: "+3",
+                    type: MessageType.START
+                }, {
+                    id: "+3",
+                    type: MessageType.END
+                }, {
+                    id: "+1",
+                    type: MessageType.END
+                }, {
+                    id: "+2",
+                    type: MessageType.START
+                }, {
+                    id: "+4",
+                    type: MessageType.ADDED,
+                    test: {
+                        parentId: "+2",
+                        description: "",
+                        type: TestType.ASSERT
+                    }
+                }, {
+                    id: "+4",
+                    type: MessageType.START
+                }, {
+                    id: "+4",
+                    type: MessageType.END
+                }, {
+                    id: "+2",
+                    type: MessageType.END
+                }, {
+                    id: "+0",
+                    type: MessageType.END
+                }]);
+            }
         });
-
-        test.test("describe end is called only after tests are ended", async () => {
-            // Arrange
-            const { formatter, root } = getProcessSend();
-
-            // Act
-            await root.describe("describe", test => {
-                test.test("test1", {
-                    ARRANGE() {
-                        return 0;
-                    },
-                    ACT() {
-                        return 0;
-                    },
-                    async ASSERT() {
-                        await setTimeout(20);
-                        return "ok";
-                    }
-                }).catch(() => {});
-                test.test("test2", {
-                    ARRANGE() {
-                        return 0;
-                    },
-                    ACT() {
-                        return 0;
-                    },
-                    ASSERT() {
-                        return "ok";
-                    }
-                }).catch(() => {});
-            });
-
-            // Assert
-            formatter.assert("after test", [{
-                id: "+0",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: String(root.id),
-                    description: "describe",
-                    type: TestType.DESCRIBE
+        test("should show nested error logs", {
+            ARRANGE(after) {
+                return getProcessSend(after);
+            },
+            ACT({ root }) {
+                const promise = root.describe("describe", test => {
+                    test.test("test1", {
+                        ARRANGE() {
+                            return 0;
+                        },
+                        ACT() {
+                            return 0;
+                        },
+                        async ASSERT() {
+                            await setTimeout(20);
+                            throw "ok";
+                        }
+                    }).catch(() => {});
+                    test.test("test2", {
+                        ARRANGE() {
+                            return 0;
+                        },
+                        ACT() {
+                            return 0;
+                        },
+                        ASSERT() {
+                            return "ok";
+                        }
+                    }).catch(() => {});
+                });
+                return { promise };
+            },
+            ASSERTS: {
+                async "promise should fail with error"({ promise }) {
+                    await Assert.rejects(promise, e => e === "ok");
+                },
+                "formatter should receive the events in order"(_, { formatter, root }) {
+                    formatter.assert([{
+                        id: "+0",
+                        type: MessageType.ADDED,
+                        test: {
+                            parentId: String(root.id),
+                            description: "describe",
+                            type: TestType.DESCRIBE
+                        }
+                    }, {
+                        id: "+0",
+                        type: MessageType.START
+                    }, {
+                        id: "+1",
+                        type: MessageType.ADDED,
+                        test: {
+                            parentId: "+0",
+                            description: "test1",
+                            type: TestType.TEST
+                        }
+                    }, {
+                        id: "+1",
+                        type: MessageType.START
+                    }, {
+                        id: "+2",
+                        type: MessageType.ADDED,
+                        test: {
+                            parentId: "+0",
+                            description: "test2",
+                            type: TestType.TEST
+                        }
+                    }, {
+                        id: "+3",
+                        type: MessageType.ADDED,
+                        test: {
+                            parentId: "+1",
+                            description: "",
+                            type: TestType.ASSERT
+                        }
+                    }, {
+                        id: "+3",
+                        type: MessageType.START
+                    }, {
+                        id: "+3",
+                        type: MessageType.END,
+                        error: "ok"
+                    }, {
+                        id: "+1",
+                        type: MessageType.END,
+                        error: "ok"
+                    }, {
+                        id: "+2",
+                        type: MessageType.START
+                    }, {
+                        id: "+4",
+                        type: MessageType.ADDED,
+                        test: {
+                            parentId: "+2",
+                            description: "",
+                            type: TestType.ASSERT
+                        }
+                    }, {
+                        id: "+4",
+                        type: MessageType.START
+                    }, {
+                        id: "+4",
+                        type: MessageType.END
+                    }, {
+                        id: "+2",
+                        type: MessageType.END
+                    }, {
+                        id: "+0",
+                        type: MessageType.END,
+                        error: "ok"
+                    }]);
                 }
-            }, {
-                id: "+0",
-                type: MessageType.START
-            }, {
-                id: "+1",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: "+0",
-                    description: "test1",
-                    type: TestType.TEST
-                }
-            }, {
-                id: "+1",
-                type: MessageType.START
-            }, {
-                id: "+2",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: "+0",
-                    description: "test2",
-                    type: TestType.TEST
-                }
-            }, {
-                id: "+3",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: "+1",
-                    description: "",
-                    type: TestType.ASSERT
-                }
-            }, {
-                id: "+3",
-                type: MessageType.START
-            }, {
-                id: "+3",
-                type: MessageType.END
-            }, {
-                id: "+1",
-                type: MessageType.END
-            }, {
-                id: "+2",
-                type: MessageType.START
-            }, {
-                id: "+4",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: "+2",
-                    description: "",
-                    type: TestType.ASSERT
-                }
-            }, {
-                id: "+4",
-                type: MessageType.START
-            }, {
-                id: "+4",
-                type: MessageType.END
-            }, {
-                id: "+2",
-                type: MessageType.END
-            }, {
-                id: "+0",
-                type: MessageType.END
-            }]);
-        });
-
-        test("should show nested error logs", async () => {
-            // Arrange
-            const { formatter, root } = getProcessSend();
-
-            // Act
-            const promise = root.describe("describe", test => {
-                test.test("test1", {
-                    ARRANGE() {
-                        return 0;
-                    },
-                    ACT() {
-                        return 0;
-                    },
-                    async ASSERT() {
-                        await setTimeout(20);
-                        throw "ok";
-                    }
-                }).catch(() => {});
-                test.test("test2", {
-                    ARRANGE() {
-                        return 0;
-                    },
-                    ACT() {
-                        return 0;
-                    },
-                    ASSERT() {
-                        return "ok";
-                    }
-                }).catch(() => {});
-            });
-
-            // Assert
-            await Assert.rejects(promise, e => e === "ok");
-            formatter.assert("after test", [{
-                id: "+0",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: String(root.id),
-                    description: "describe",
-                    type: TestType.DESCRIBE
-                }
-            }, {
-                id: "+0",
-                type: MessageType.START
-            }, {
-                id: "+1",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: "+0",
-                    description: "test1",
-                    type: TestType.TEST
-                }
-            }, {
-                id: "+1",
-                type: MessageType.START
-            }, {
-                id: "+2",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: "+0",
-                    description: "test2",
-                    type: TestType.TEST
-                }
-            }, {
-                id: "+3",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: "+1",
-                    description: "",
-                    type: TestType.ASSERT
-                }
-            }, {
-                id: "+3",
-                type: MessageType.START
-            }, {
-                id: "+3",
-                type: MessageType.END,
-                error: "ok"
-            }, {
-                id: "+1",
-                type: MessageType.END,
-                error: "ok"
-            }, {
-                id: "+2",
-                type: MessageType.START
-            }, {
-                id: "+4",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: "+2",
-                    description: "",
-                    type: TestType.ASSERT
-                }
-            }, {
-                id: "+4",
-                type: MessageType.START
-            }, {
-                id: "+4",
-                type: MessageType.END
-            }, {
-                id: "+2",
-                type: MessageType.END
-            }, {
-                id: "+0",
-                type: MessageType.END,
-                error: "ok"
-            }]);
+            }
         });
     });
-    test.describe("Should run test files", () => {
-        // Assert
-        function newFormatter() {
+    test.describe("Should run test files", (test) => {
+        function newFormatter(after:After) {
             const formatter = getFormatter();
-            const root = newRoot();
+            const root = afterNewRoot(after);
             root.setFormatter({
                 format: (_fileId, msg) => {
                     formatter.cb(msg);
                 }
             });
-            test.after(() => newRoot());
             return { formatter, root };
         }
-        async function runTest(spawn = false) {
-            // Arrange
-            const { formatter, root } = newFormatter();
-            const rootId = spawn ? "0" : root.id;
-            const check:CheckMessages[] = [{
-                id: "+0",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: String(rootId),
-                    description: "assertNumber1",
-                    type: TestType.DESCRIBE
+        async function runTest(testName:string, spawn = false) {
+            test(testName, {
+                ARRANGE(after) {
+                    return newFormatter(after);
+                },
+                async ACT({ root }) {
+                    if (spawn) {
+                        await root.spawnTestFile(mockFiles["file1.mytest-ok"], { prefix: [] });
+                    } else {
+                        root.runTestFile(mockFiles["file1.mytest-ok"], {
+                            clearModuleCache: true
+                        });
+                    }
+                    await root.run();
+                },
+                ASSERT(_, { formatter, root }) {
+                    const rootId = spawn ? "0" : root.id;
+                    const check:CheckMessages[] = [{
+                        id: "+0",
+                        type: MessageType.ADDED,
+                        test: {
+                            parentId: String(rootId),
+                            description: "assertNumber1",
+                            type: TestType.DESCRIBE
+                        }
+                    }, {
+                        id: "+0",
+                        type: MessageType.START
+                    }, {
+                        id: "+1",
+                        type: MessageType.ADDED,
+                        test: {
+                            parentId: "+0",
+                            description: "should work",
+                            type: TestType.TEST
+                        }
+                    }, {
+                        id: "+1",
+                        type: MessageType.START
+                    }, {
+                        id: "+2",
+                        type: MessageType.ADDED,
+                        test: {
+                            parentId: "+0",
+                            description: "should not work",
+                            type: TestType.TEST
+                        }
+                    }, {
+                        id: "+3",
+                        type: MessageType.ADDED,
+                        test: {
+                            parentId: "+1",
+                            description: "",
+                            type: TestType.ASSERT
+                        }
+                    }, {
+                        id: "+3",
+                        type: MessageType.START
+                    }, {
+                        id: "+3",
+                        type: MessageType.END
+                    }, {
+                        id: "+1",
+                        type: MessageType.END
+                    }, {
+                        id: "+2",
+                        type: MessageType.START
+                    }, {
+                        id: "+4",
+                        type: MessageType.ADDED,
+                        test: {
+                            parentId: "+2",
+                            description: "",
+                            type: TestType.ASSERT
+                        }
+                    }, {
+                        id: "+4",
+                        type: MessageType.START
+                    }, {
+                        id: "+4",
+                        type: MessageType.END
+                    }, {
+                        id: "+2",
+                        type: MessageType.END
+                    }, {
+                        id: "+0",
+                        type: MessageType.END
+                    }];
+                    if (spawn) {
+                        check.unshift({
+                            type: MessageType.FILE_START
+                        });
+                        check.push({
+                            type: MessageType.FILE_END
+                        });
+                    }
+                    formatter.assert(check);
                 }
-            }, {
-                id: "+0",
-                type: MessageType.START
-            }, {
-                id: "+1",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: "+0",
-                    description: "should work",
-                    type: TestType.TEST
-                }
-            }, {
-                id: "+1",
-                type: MessageType.START
-            }, {
-                id: "+2",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: "+0",
-                    description: "should not work",
-                    type: TestType.TEST
-                }
-            }, {
-                id: "+3",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: "+1",
-                    description: "",
-                    type: TestType.ASSERT
-                }
-            }, {
-                id: "+3",
-                type: MessageType.START
-            }, {
-                id: "+3",
-                type: MessageType.END
-            }, {
-                id: "+1",
-                type: MessageType.END
-            }, {
-                id: "+2",
-                type: MessageType.START
-            }, {
-                id: "+4",
-                type: MessageType.ADDED,
-                test: {
-                    parentId: "+2",
-                    description: "",
-                    type: TestType.ASSERT
-                }
-            }, {
-                id: "+4",
-                type: MessageType.START
-            }, {
-                id: "+4",
-                type: MessageType.END
-            }, {
-                id: "+2",
-                type: MessageType.END
-            }, {
-                id: "+0",
-                type: MessageType.END
-            }];
-            if (spawn) {
-                check.unshift({
-                    type: MessageType.FILE_START
-                });
-                check.push({
-                    type: MessageType.FILE_END
-                });
-            }
-
-            // Act
-            if (spawn) {
-                await root.spawnTestFile(mockFiles["file1.mytest-ok"], { prefix: [] });
-            } else {
-                root.runTestFile(mockFiles["file1.mytest-ok"], {
-                    clearModuleCache: true
-                });
-            }
-            await root.run();
-
-            // Assert
-            formatter.assert("after test", check);
+            });
         }
-        test("should run a test file", async () => {
-            await runTest();
-        });
-        test("should spawn a test file", async () => {
-            await runTest(true);
-        });
+        runTest("should run a test file");
+        runTest("should spawn a test file", true);
     });
 });

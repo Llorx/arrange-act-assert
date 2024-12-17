@@ -1,36 +1,44 @@
-import { test } from "node:test";
+import * as Assert from "assert";
+
+import test from "arrange-act-assert";
 
 import { functionRunner } from "./functionRunner";
 
-test.describe("functionRunner", () => {
-    test("Should run valid function", async () => {
-        const result = await functionRunner("test", ()=>{}, []);
-        if (!result.run || !result.ok) {
-            throw new Error("Function should run");
+test.describe("functionRunner", (test) => {
+    test("Should run valid function", {
+        async ACT() {
+            return await functionRunner("test", () => 123, []);
+        },
+        ASSERT(result) {
+            Assert.deepStrictEqual(result, {
+                run: true,
+                ok: true,
+                data: 123
+            });
         }
     });
-    test("Should get invalid function error", async () => {
-        const result = await functionRunner("test", ()=>{ throw "ok" }, []);
-        if (!result.run || result.ok) {
-            throw new Error("Function should run with an error");
-        }
-        if (!result.run || result.error !== "ok") {
-            throw result.error;
-        }
-    });
-    test("Should get value from result", async () => {
-        const result = await functionRunner("test", ()=>{ return "ok" }, []);
-        if (!result.run || !result.ok) {
-            throw new Error("Function should run with an error");
-        }
-        if (result.data !== "ok") {
-            throw new Error("Function should return ok");
+    test("Should get invalid function error", {
+        async ACT() {
+            return await functionRunner("test", () => { throw "ok" }, []);
+        },
+        ASSERT(result) {
+            Assert.deepStrictEqual(result, {
+                run: true,
+                ok: false,
+                error: "ok",
+                type: "test"
+            });
         }
     });
-    test("Should not run an undefined argument", async () => {
-        const result = await functionRunner("test", undefined, []);
-        if (result.run) {
-            throw new Error("Function should not ");
+    test("Should not run an undefined argument", {
+        async ACT() {
+            return await functionRunner("test", undefined, []);
+        },
+        ASSERT(result) {
+            Assert.deepStrictEqual(result, {
+                run: false,
+                data: undefined
+            });
         }
     });
 });
