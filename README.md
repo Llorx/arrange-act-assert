@@ -249,7 +249,7 @@ npx aaa [OPTIONS]
 The `aaa` cli command accepts these options:
 · `--folder STRING`: The path of the folder where the test files are located. Defaults to the current folder.
 · `--parallel NUMBER`: This tool runs test files in subprocesses (one new node process per test file). It will run these amounts of files in parallel. Set to `0` to run all the test files in the very same process, although is not recommended. Defaults to the amount of cores that the running computer has.
-· `--include-files REGEX`: The regex to apply to each full file path found to consider it a test file to run. You can set multiple regexes by setting this option multiple times. Defaults to `.*(\b|_)(test)(\b|_).*\.(cjs|mjs|js)$`.
+· `--include-files REGEX`: The regex to apply to each full file path found to consider it a test file to run. You can set multiple regexes by setting this option multiple times. Defaults to `(\\|\/|.*(\.|-|_))(test)(\.|(\.|-|\\|\/).*.)(cjs|mjs|js)$`.
 · `--exclude-files REGEX`: The regex to apply to each full file path found to exclude it. Defaults to `\/node_modules\/`.
 · `--spawn-args-prefix PREFIX`: It will launch the test files with this prefix in the arguments. You can set multiple prefixes by setting this option multiple times.
 · `--clear-module-cache`: When you run test files with `parallel` set to `0` (same process), this flag will delete the module cache so when the TestSuite requires a test file, NodeJS will re-require and re-evaluate the file and its dependencies instead of returning the cache, just in case that you need everything clean.
