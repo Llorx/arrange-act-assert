@@ -20,10 +20,7 @@
     "build": "npm run clean && npx tsc -p tsconfig.build.json",
     "build-debug": "npm run clean && npx tsc -p tsconfig.json",
     "build-test": "npm run clean && npx tsc -p tsconfig.test.json",
-    "js-coverage": "npm run clean && npm run build-test && npm run test-coverage",
-    "test": "node --test",
-    "test-coverage": "node --test --experimental-test-coverage --test-coverage-exclude=**/*.test.* --test-coverage-exclude=**/test_folder_mock/**",
-    "test-watch": "node --test --watch",
+    "test": "npx aaa",
     "clean": "node -e \"require('fs').rm('lib', {recursive: true}, O_o => {})\""
   },
   "author": "Llorx",
@@ -38,6 +35,7 @@
   "homepage": "https://github.com/Llorx/arrange-act-assert#readme",
   "devDependencies": {
     "@types/node": "^22.7.8",
+    "arrange-act-assert": "^0.0.5",
     "typescript": "^5.6.3"
   }
 }

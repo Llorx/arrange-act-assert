@@ -1,9 +1,8 @@
 # arrange-act-assert
-Act-Arrange-Assert oriented testing tool.
-Read the **UPDATED DOCUMENTATION** in GitHub: https://github.com/Llorx/arrange-act-assert
+Zero-dependency lightweight Act-Arrange-Assert oriented testing tool.
 
 # Motivation
-Focusing lately in unitary testing, I noticed that I wanted to reduce the amount of *brain cycles* that I waste designing and reading tests, so I started adding `// Act // Arrange // Assert` [comments to all my tests](https://github.com/goldbergyoni/javascript-testing-best-practices?tab=readme-ov-file#section-0%EF%B8%8F%E2%83%A3-the-golden-rule) so it helps me to notice when something is not in the proper section and also helps identifying each section on first sight, but there's a thing I love more than testing: design-oriented development. Humans are fallible so I prefer for the tool or project premise to force me to follow methodologies and good practices instead of me applying my own rules over my workflow. The more good practices you are forced to do, the less chances to have a problem because, for example, you had a headache one day and you didn't notice a mistake.
+Focusing lately in unitary testing, I noticed that I wanted to reduce the amount of *brain cycles* that I waste designing and reading tests, so I started adding `// Act // Arrange // Assert` [comments to all my tests](https://github.com/goldbergyoni/javascript-testing-best-practices?tab=readme-ov-file#section-0%EF%B8%8F%E2%83%A3-the-golden-rule) so it helps me to notice when something is not in the proper section and also helps identifying each section on first sight, but there's a thing I love more than testing: **design-oriented development**. Humans are fallible so I prefer for the tool or project premise to force me to follow methodologies and good practices instead of me applying my own rules over my workflow. The more good practices you are forced to do, the less chances to have a problem because, for example, you had a headache one day and you didn't notice a mistake.
 
 With this idea, I created the Act-Arrange-Assert testing tool that reduces the amount of *brain cycles* wasted when you have to read and design your tests.
 
@@ -59,8 +58,10 @@ test("should do that thing properly", () => {
     const factory = new MyFactory();
     test.after(() => factory.dispose());
     const processor = factory.getProcessor();
+
     // Act
     const data = processor.processBase(base);
+
     // Assert
     Assert.deepScriptEqual(data, {
         a: 2,
@@ -72,7 +73,7 @@ This helps to differenciate the sections, for example helping you to avoid mixin
 ```typescript
 Assert.deepScriptEqual(processor.processBase(base), {...}); // Bad
 ```
-Still I don't like the idea of just using comments, because that's a rule I've set to myself. The tool itself stills allows me to do weird things that maybe some day I do for whatever reason.
+Still I don't like the idea of just using comments, because that's a rule I've set to myself. The native NodeJS test runner stills allows me to do *weird* things (like multiple acts in a single test) that maybe some day I do for whatever reason.
 
 With `arrange-act-assert` it helps design a test like this:
 ```typescript
@@ -108,11 +109,11 @@ test("should do that thing properly", {
     }
 });
 ```
-If you actually read the code, I bet that one of the first things that you saw were the uppercase sections. I can hear you screaming "ugh those uppercase section names!" and that's precisely my pitch: they're noticeable, they're easy to see, THEY'RE UPPERCASE, so you wasted almost no *brain cycles* identifying them.
+If you actually read the code, I bet that one of the first things that you saw were the uppercase sections. I can hear you screaming "ugh those uppercase section names!" and that's precisely **my pitch**: they're noticeable, they're easy to see, THEY'RE UPPERCASE, so you wasted almost no *brain cycles* identifying them.
 
-The tool, by design, helped you to differenciate the method that you are trying to test (the `processBase()` inside the ACT) and what result it should return (the `{ a: 2, b: 27 }` inside the ASSERT).
+The tool, by design, helped you to differenciate the method that you are trying to test (the `processBase()` inside the *ACT*) and what result it should return (the `{ a: 2, b: 27 }` inside the *ASSERT*).
 
-Apart from that, the `after` callback has a different approach. It wraps the item to be cleared and returns it in the callback function. This way the item to be cleared is directly linked to the callback that will clear it.
+Apart from that, the `after` callback has a different approach. It wraps the item to be cleared and returns it in the callback function. This way the item to be cleared is directly linked to the callback that will clear it, helping you to create individual clearing callbacks for each element that needs to be cleared. Imagine that one clear callback with 3 elements inside fails on the element 2 for whatever reason. The third element is never going to clear and you will end up with a leaking resource that may pollute your remaining tests (*insert panik.png here*).
 
 And that's very much it.
 
@@ -128,15 +129,15 @@ test("myTest", {
     },
     ACT?({ myArrange }, after) {
         // Optional ACT method
-        // Receives what ARRANGE returns as the first argument
+        // Receives the ARRANGE return as the first argument
         // Receives an "after" callback as the second argument
         const myAct = myArrange + 1;
         return { myAct };
     },
     ASSERT?({ myAct }, { myArrange }, after) {
         // Optional ASSERT method
-        // Receives what ACT returns as the first argument
-        // Receives what ARRANGE returns as the second argument
+        // Receives the ACT return as the first argument
+        // Receives the ARRANGE return as the second argument
         // Receives an "after" callback as the third argument
         myAct === 101;
         myArrange === 100;
@@ -146,15 +147,15 @@ test("myTest", {
         // check multiple results for the same action, to
         // avoid having a single ASSERT section with multiple assertions
         "should assert one thing"({ myAct }, { myArrange }, after) {
-            // Receives what ACT returns as the first argument
-            // Receives what ARRANGE returns as the second argument
+            // Receives the ACT return as the first argument
+            // Receives the ARRANGE return as the second argument
             // Receives an "after" callback as the third argument
             myAct === 101;
             myArrange === 100;
         },
         "should assert another thing"({ myAct }, { myArrange }, after) {
-            // Receives what ACT returns as the first argument
-            // Receives what ARRANGE returns as the second argument
+            // Receives the ACT return as the first argument
+            // Receives the ARRANGE return as the second argument
             // Receives an "after" callback as the third argument
             myAct === 101;
             myArrange === 100;
@@ -162,9 +163,9 @@ test("myTest", {
     }
 });
 ```
-All three methods are optional, because you don't need to arrange anything, or maybe you only want to test that the ACT doesn't throw an error.
+All three methods are optional, because maybe you don't need to ARRANGE anything, or maybe you only want to test that the ACT doesn't throw an error without any extra boilerplate.
 
-You also have a `describe` to group tests:
+You also have a `describe` method to group tests:
 ```typescript
 test.describe("myDescribe", (test) => {
     // The describe callback will receive a new `test` object that
@@ -176,14 +177,14 @@ test.describe("myDescribe", (test) => {
 And you can call as much describes as you want inside another describes:
 ```typescript
 test.describe("myDescribe", (test) => {
-    // Use the new "test" function
+    // Use the new "node:test" function
     test.describe("subdescribe 1", (test) => {
-        // Use the new "test" function
+        // Use the new "node:test" function
         test("myTest1", {...});
         test("myTest2", {...});
     });
     test.describe("subdescribe 2", (test) => {
-        // Use the new "test" function
+        // Use the new "node:test" function
         test("myTest1", {...});
         test("myTest2", {...});
     });
@@ -247,12 +248,12 @@ To run the tests you just have to call in the cli:
 npx aaa [OPTIONS]
 ```
 The `aaa` cli command accepts these options:
-· `--folder STRING`: The path of the folder where the test files are located. Defaults to the current folder.
-· `--parallel NUMBER`: This tool runs test files in subprocesses (one new node process per test file). It will run these amounts of files in parallel. Set to `0` to run all the test files in the very same process, although is not recommended. Defaults to the amount of cores that the running computer has.
-· `--include-files REGEX`: The regex to apply to each full file path found to consider it a test file to run. You can set multiple regexes by setting this option multiple times. Defaults to `(\\|\/|.*(\.|-|_))(test)(\.|(\.|-|\\|\/).*.)(cjs|mjs|js)$`.
-· `--exclude-files REGEX`: The regex to apply to each full file path found to exclude it. Defaults to `\/node_modules\/`.
-· `--spawn-args-prefix PREFIX`: It will launch the test files with this prefix in the arguments. You can set multiple prefixes by setting this option multiple times.
-· `--clear-module-cache`: When you run test files with `parallel` set to `0` (same process), this flag will delete the module cache so when the TestSuite requires a test file, NodeJS will re-require and re-evaluate the file and its dependencies instead of returning the cache, just in case that you need everything clean.
+- `--folder STRING`: The path of the folder where the test files are located. Defaults to the current folder.
+- `--parallel NUMBER`: This tool runs test files in subprocesses (one new node process per test file). It will run these amounts of files in parallel. Set to `0` to run all the test files in the very same process, although is not recommended. Defaults to the amount of cores that the running computer has.
+- `--include-files REGEX`: The regex to apply to each full file path found to consider it a test file to run. You can set multiple regexes by setting this option multiple times. Defaults to `(\\|\/|.*(\.|-|_))(test)(\.|(\.|-|\\|\/).*.)(cjs|mjs|js)$`.
+- `--exclude-files REGEX`: The regex to apply to each full file path found to exclude it. Defaults to `\/node_modules\/`.
+- `--spawn-args-prefix PREFIX`: It will launch the test files with this prefix in the arguments. You can set multiple prefixes by setting this option multiple times.
+- `--clear-module-cache`: When you run test files with `parallel` set to `0` (same process), this flag will delete the module cache so when the TestSuite requires a test file, NodeJS will re-require and re-evaluate the file and its dependencies instead of returning the cache, just in case that you need everything clean.
 
 Alternatively, you can import the `TestSuite` and run your tests programatically:
 ```typescript
@@ -334,4 +335,4 @@ test("Should throw an error when invalid arguments in async function", {
     }
 });
 ```
-They will return a `Monad` object with the properties `ok` and `error` and the methods `should.ok(VALUE)` and `should.error(ERROR)`. The error validation is done using the [NodeJS Assert.throws() error argument](https://nodejs.org/api/assert.html#assertthrowsfn-error-message).
+They will return a `Monad` object with the methods `should.ok(VALUE)`, `should.error(ERROR)` and `match({ ok:(value)=>void, error:(error)=>void })`. The error validation is done using the [NodeJS Assert.throws() error argument](https://nodejs.org/api/assert.html#assertthrowsfn-error-message).

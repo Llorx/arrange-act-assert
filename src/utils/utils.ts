@@ -48,7 +48,6 @@ export function clearModuleCache(file:string, _root = PATH.dirname(file) + PATH.
 }
 
 export function processArgs(args:string[]) {
-    // TODO: Test this
     let nextKey = "";
     const res = new Map<string, string[]>();
     for (const arg of args) {

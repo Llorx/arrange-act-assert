@@ -1,4 +1,4 @@
-import * as Assert from "node:assert";
+import * as Assert from "assert";
 
 import test from "..";
 import { assertNumber1 } from "./file1";
