@@ -24,7 +24,7 @@ export type TestResult = {
 const DEFAULT_OPTIONS:TestSuiteOptions = {
     parallel: OS.cpus().length,
     folder: process.cwd(),
-    include: [/.*(\b|_)(test)(\b|_).*\.(cjs|mjs|js)$/i],
+    include: [/(\\|\/|.*(\.|-|_))(test)(\.|(\.|-|\\|\/).*.)(cjs|mjs|js)$/i],
     exclude: [/\/node_modules\//i],
     prefix: [],
     clearModuleCache: false,

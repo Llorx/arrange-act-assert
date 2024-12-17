@@ -18,7 +18,7 @@ test.describe("filterFiles", () => {
     test("should list all test files", () => {
         // Act
         const files = filterFiles(mockFiles, {
-            include: [/.*(\b|_)(test)(\b|_).*\.(cjs|mjs|js)$/i],
+            include: [/(\\|\/|.*(\.|-|_))(test)(\.|(\.|-|\\|\/).*.)(cjs|mjs|js)$/i],
             exclude: []
         });
 
@@ -44,7 +44,7 @@ test.describe("filterFiles", () => {
     test("should exclude test files", () => {
         // Act
         const files = filterFiles(mockFiles, {
-            include: [/.*(\b|_)(test)(\b|_).*\.(cjs|mjs|js)$/i],
+            include: [/(\\|\/|.*(\.|-|_))(test)(\.|(\.|-|\\|\/).*.)(cjs|mjs|js)$/i],
             exclude: [/ok1/i]
         });
 
