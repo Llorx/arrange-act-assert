@@ -8,9 +8,9 @@ import { spawnTestFile, SpawnTestFileOptions } from "../spawnTestFile/spawnTestF
 
 type AssertObject<ARR, ACT> = {[name:string]:(act:Awaited<ACT>, arrange:Awaited<ARR>, after:After)=>unknown};
 
-type After = <T>(data:T, cb:(data:T)=>void) => T;
+export type After = <T>(data:T, cb:(data:T)=>void) => T;
 
-type DescribeCallback = (test:TestFunction, after:After)=>unknown;
+export type DescribeCallback = (test:TestFunction, after:After)=>unknown;
 export interface TestInterface<ARR, ACT, ASS> {
     ARRANGE?(after:After):ARR;
     ACT?(arrange:Awaited<NoInfer<ARR>>, after:After):ACT;
