@@ -1,4 +1,4 @@
-import * as PATH from "path";
+import * as Path from "path";
 
 export interface ResolvablePromise extends Promise<void> {
     resolve():void;
@@ -34,7 +34,7 @@ export function resolvablePromise() {
     return instance;
 }
 
-export function clearModuleCache(file:string, _root = PATH.dirname(file) + PATH.sep) {
+export function clearModuleCache(file:string, _root = Path.dirname(file) + Path.sep) {
     const id = require.resolve(file);
     if (Object.hasOwnProperty.call(require.cache, id)) {
         const mod = require.cache[id];
@@ -61,6 +61,18 @@ export function processArgs(args:string[]) {
                 }
             }
             nextKey = arg.slice(2);
+            const equalIndex = nextKey.indexOf("=");
+            if (equalIndex > -1) {
+                const value = nextKey.substring(equalIndex + 1);
+                nextKey = nextKey.substring(0, equalIndex);
+                const values = res.get(nextKey);
+                if (values) {
+                    values.push(value);
+                } else {
+                    res.set(nextKey, [value]);
+                }
+                nextKey = "";
+            }
         } else if (nextKey) {
             const values = res.get(nextKey);
             if (values) {
