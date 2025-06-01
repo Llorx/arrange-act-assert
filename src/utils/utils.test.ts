@@ -113,6 +113,19 @@ test.describe("utils", (test) => {
                 ]);
             }
         });
+        test("should process args with =", {
+            ACT() {
+                return processArgs(["--src", "mySrc", "--multi=first", "--empty", "--multi=second", "--multi", "third", "--emptyFinal"]);
+            },
+            ASSERT(args) {
+                Assert.deepStrictEqual(Array.from(args.entries()), [
+                    ["src", ["mySrc"]],
+                    ["multi", ["first", "second", "third"]],
+                    ["empty", [""]],
+                    ["emptyFinal", [""]]
+                ]);
+            }
+        });
         test("should error on invalid args", {
             ACT() {
                 return monad(() => processArgs(["--src", "mySrc", "--multi", "first", "errorArg"]));
