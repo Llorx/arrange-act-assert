@@ -1,10 +1,12 @@
-// import { test } from "test";
+import * as Fs from "fs";
+import * as Os from "os";
+import * as Path from "path";
 import * as Assert from "assert";
 import { setTimeout } from "timers/promises";
 
 import test, { After, asyncMonad, TestFunction } from "arrange-act-assert";
 
-import { isMessage, newRoot } from "./testRunner";
+import { isMessage, newRoot, TestOptions } from "./testRunner";
 import { MessageType, MessageFileStart, MessageFileEnd, MessageAdded, MessageStart, MessageEnd, Messages, TestType } from "../formatters";
 
 import { mockFiles } from "../test_folder_mock";
@@ -12,12 +14,12 @@ import { mockFiles } from "../test_folder_mock";
 type CheckMessages = MessageFileStart | MessageFileEnd | ({ id:string } & ((Omit<MessageAdded, "id"|"test"> & { test: { parentId:string } & Omit<MessageAdded["test"], "parentId"> }) | Omit<MessageStart, "id"> | Omit<MessageEnd, "id">));
 
 test.describe("testRunner", (test) => {
-    function afterNewRoot(after:After) {
+    function afterNewRoot(after:After, options?:TestOptions) {
         after(process.env.AAA_TEST_FILE, oldAAA => {
             process.env.AAA_TEST_FILE = oldAAA
         });
-        process.env.AAA_TEST_FILE = "";
-        return newRoot();
+        process.env.AAA_TEST_FILE = ""; // Do not notify parent process
+        return newRoot(options);
     }
     function stepped(steps:number[] = []) {
         return {
@@ -1182,5 +1184,394 @@ test.describe("testRunner", (test) => {
         }
         runTest("should run a test file");
         runTest("should spawn a test file", true);
+    });
+    test.describe("snapshots", test => {
+        async function tempFolder(after:After) {
+            return after(await Fs.promises.mkdtemp(Path.join(Os.tmpdir(), "aaa-tests-")), folder => Fs.promises.rm(folder, { recursive: true, force: true }));
+        }
+        test.describe("single", test => {
+            test("should ask to confirm a snapshot", {
+                async ARRANGE(after) {
+                    const snapshotsFolder = await tempFolder(after);
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder
+                    });
+                    return { myTest, snapshotsFolder };
+                },
+                ACT({ myTest }) {
+                    return asyncMonad(() => myTest.test("test snapshot", {
+                        SNAPSHOT() {
+                            return { asd: 1 };
+                        }
+                    }));
+                },
+                ASSERT(res) {
+                    res.should.error({
+                        message: /Confirm snapshot:/
+                    });
+                }
+            });
+            test("should create a snapshot", {
+                async ARRANGE(after) {
+                    const snapshotsFolder = await tempFolder(after);
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    return { myTest, snapshotsFolder };
+                },
+                async ACT({ myTest }) {
+                    await myTest.test("test snapshot", {
+                        SNAPSHOT() {
+                            return { asd: 1 };
+                        }
+                    });
+                },
+                async ASSERT(_, { snapshotsFolder }) {
+                    await Fs.promises.statfs(Path.join(snapshotsFolder, "test snapshot"));
+                }
+            });
+            test("should ask to review an existent snapshot", {
+                async ARRANGE(after) {
+                    const snapshotsFolder = await tempFolder(after);
+                    const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    await myTest1.test("test snapshot", {
+                        SNAPSHOT() {
+                            return { asd: 1 };
+                        }
+                    });
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        reviewSnapshots: true
+                    });
+                    return { myTest, snapshotsFolder };
+                },
+                ACT({ myTest }) {
+                    return asyncMonad(() => myTest.test("test snapshot", {
+                        SNAPSHOT() {
+                            return { asd: 1 };
+                        }
+                    }));
+                },
+                ASSERT(res) {
+                    res.should.error({
+                        message: /Review snapshot:/
+                    });
+                }
+            });
+            test("should test a valid snapshot", {
+                async ARRANGE(after) {
+                    const snapshotsFolder = await tempFolder(after);
+                    const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    await myTest1.test("test snapshot", {
+                        SNAPSHOT() {
+                            return { asd: 1 };
+                        }
+                    });
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    return { myTest, snapshotsFolder };
+                },
+                ACT({ myTest }) {
+                    return asyncMonad(() => myTest.test("test snapshot", {
+                        SNAPSHOT() {
+                            return { asd: 1 };
+                        }
+                    }));
+                },
+                ASSERT(res) {
+                    res.should.ok();
+                }
+            });
+            test("should test an invalid snapshot", {
+                async ARRANGE(after) {
+                    const snapshotsFolder = await tempFolder(after);
+                    const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    await myTest1.test("test snapshot", {
+                        SNAPSHOT() {
+                            return { asd: 1 };
+                        }
+                    });
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    return { myTest, snapshotsFolder };
+                },
+                ACT({ myTest }) {
+                    return asyncMonad(() => myTest.test("test snapshot", {
+                        SNAPSHOT() {
+                            return { asd: 2 };
+                        }
+                    }));
+                },
+                ASSERT(res) {
+                    res.should.error({
+                        message: /Expected values to be strictly deep-equal(.|\r|\n)*asd: 1/
+                    });
+                }
+            });
+        });
+        test.describe("multiple", test => {
+            test("should ask to confirm a snapshot", {
+                async ARRANGE(after) {
+                    const snapshotsFolder = await tempFolder(after);
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder
+                    });
+                    return { myTest, snapshotsFolder };
+                },
+                ACT({ myTest }) {
+                    return asyncMonad(() => myTest.test("test snapshot", {
+                        ACT() {
+                            return { asd1: 1, asd2: 2 };
+                        },
+                        SNAPSHOTS: {
+                            "asd1"(res) {
+                                return res.asd1;
+                            },
+                            "asd2"(res) {
+                                return res.asd2;
+                            }
+                        }
+                    }));
+                },
+                ASSERT(res) {
+                    res.should.error({
+                        message: /Confirm snapshot:/
+                    });
+                }
+            });
+            test("should create snapshots", {
+                async ARRANGE(after) {
+                    const snapshotsFolder = await tempFolder(after);
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    return { myTest, snapshotsFolder };
+                },
+                async ACT({ myTest }) {
+                    await myTest.test("test snapshot", {
+                        ACT() {
+                            return { asd1: 1, asd2: 2 };
+                        },
+                        SNAPSHOTS: {
+                            "asd1"(res) {
+                                return res.asd1;
+                            },
+                            "asd2"(res) {
+                                return res.asd2;
+                            }
+                        }
+                    });
+                },
+                ASSERTS: {
+                    async "should create asd1 snapshot"(_, { snapshotsFolder }) {
+                        await Fs.promises.statfs(Path.join(snapshotsFolder, "test snapshot", "asd1"));
+                    },
+                    async "should create asd2 snapshot"(_, { snapshotsFolder }) {
+                        await Fs.promises.statfs(Path.join(snapshotsFolder, "test snapshot", "asd2"));
+                    }
+                }
+            });
+            test("should ask to review an existent snapshot", {
+                async ARRANGE(after) {
+                    const snapshotsFolder = await tempFolder(after);
+                    const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    await myTest1.test("test snapshot", {
+                        ACT() {
+                            return { asd1: 1, asd2: 2 };
+                        },
+                        SNAPSHOTS: {
+                            "asd1"(res) {
+                                return res.asd1;
+                            },
+                            "asd2"(res) {
+                                return res.asd2;
+                            }
+                        }
+                    });
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        reviewSnapshots: true
+                    });
+                    return { myTest, snapshotsFolder };
+                },
+                ACT({ myTest }) {
+                    return asyncMonad(() => myTest.test("test snapshot", {
+                        ACT() {
+                            return { asd1: 1, asd2: 2 };
+                        },
+                        SNAPSHOTS: {
+                            "asd1"(res) {
+                                return res.asd1;
+                            },
+                            "asd2"(res) {
+                                return res.asd2;
+                            }
+                        }
+                    }));
+                },
+                ASSERT(res) {
+                    res.should.error({
+                        message: /Review snapshot:/
+                    });
+                }
+            });
+            test("should test multiple valid snapshots", {
+                async ARRANGE(after) {
+                    const snapshotsFolder = await tempFolder(after);
+                    const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    await myTest1.test("test snapshot", {
+                        ACT() {
+                            return { asd1: 1, asd2: 2 };
+                        },
+                        SNAPSHOTS: {
+                            "asd1"(res) {
+                                return res.asd1;
+                            },
+                            "asd2"(res) {
+                                return res.asd2;
+                            }
+                        }
+                    });
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    return { myTest, snapshotsFolder };
+                },
+                ACT({ myTest }) {
+                    return asyncMonad(() => myTest.test("test snapshot", {
+                        ACT() {
+                            return { asd1: 1, asd2: 2 };
+                        },
+                        SNAPSHOTS: {
+                            "asd1"(res) {
+                                return res.asd1;
+                            },
+                            "asd2"(res) {
+                                return res.asd2;
+                            }
+                        }
+                    }));
+                },
+                ASSERT(res) {
+                    res.should.ok();
+                }
+            });
+            test("should test first invalid snapshot", {
+                async ARRANGE(after) {
+                    const snapshotsFolder = await tempFolder(after);
+                    const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    await myTest1.test("test snapshot", {
+                        ACT() {
+                            return { asd1: 1, asd2: 2 };
+                        },
+                        SNAPSHOTS: {
+                            "asd1"(res) {
+                                return res.asd1;
+                            },
+                            "asd2"(res) {
+                                return res.asd2;
+                            }
+                        }
+                    });
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    return { myTest, snapshotsFolder };
+                },
+                ACT({ myTest }) {
+                    return asyncMonad(() => myTest.test("test snapshot", {
+                        ACT() {
+                            return { asd1: 2, asd2: 2 };
+                        },
+                        SNAPSHOTS: {
+                            "asd1"(res) {
+                                return res.asd1;
+                            },
+                            "asd2"(res) {
+                                return res.asd2;
+                            }
+                        }
+                    }));
+                },
+                ASSERT(res) {
+                    res.should.error({
+                        message: /Expected values to be strictly deep-equal(.|\r|\n)*2 !== 1/
+                    });
+                }
+            });
+            test("should test second invalid snapshot", {
+                async ARRANGE(after) {
+                    const snapshotsFolder = await tempFolder(after);
+                    const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    await myTest1.test("test snapshot", {
+                        ACT() {
+                            return { asd1: 1, asd2: 2 };
+                        },
+                        SNAPSHOTS: {
+                            "asd1"(res) {
+                                return res.asd1;
+                            },
+                            "asd2"(res) {
+                                return res.asd2;
+                            }
+                        }
+                    });
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    return { myTest, snapshotsFolder };
+                },
+                ACT({ myTest }) {
+                    return asyncMonad(() => myTest.test("test snapshot", {
+                        ACT() {
+                            return { asd1: 2, asd2: 1 };
+                        },
+                        SNAPSHOTS: {
+                            "asd1"(res) {
+                                return res.asd1;
+                            },
+                            "asd2"(res) {
+                                return res.asd2;
+                            }
+                        }
+                    }));
+                },
+                ASSERT(res) {
+                    res.should.error({
+                        message: /Expected values to be strictly deep-equal(.|\r|\n)*2 !== 1/
+                    });
+                }
+            });
+        });
     });
 });

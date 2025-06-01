@@ -1,4 +1,9 @@
 import * as Util from "util";
+import * as Path from "path";
+import * as Fs from "fs";
+import * as V8 from "v8";
+import * as Assert from "assert";
+import * as Crypto from "crypto";
 
 import { functionRunner, RunMonad } from "./functionRunner";
 import { clearModuleCache, ResolvablePromise, resolvablePromise } from "../utils/utils";
@@ -6,21 +11,28 @@ import { Formatter, MessageType, Messages, TestInfo, TestType } from "../formatt
 import { DefaultFormatter } from "../formatters/default";
 import { spawnTestFile, SpawnTestFileOptions } from "../spawnTestFile/spawnTestFile";
 
-type AssertObject<ARR, ACT> = {[name:string]:(act:Awaited<ACT>, arrange:Awaited<ARR>, after:After)=>unknown};
+type AssertSnapshotObject<ARR, ACT> = {[name:string]:(act:Awaited<ACT>, arrange:Awaited<ARR>, after:After)=>unknown};
 
 export type After = <T>(data:T, cb:(data:T)=>void) => T;
 
 export type DescribeCallback = (test:TestFunction, after:After)=>unknown;
-export interface TestInterface<ARR, ACT, ASS> {
+export type TestInterface<ARR, ACT, ASS> = {
     ARRANGE?(after:After):ARR;
     ACT?(arrange:Awaited<NoInfer<ARR>>, after:After):ACT;
     ASSERT?(act:Awaited<NoInfer<ACT>>, arrange:Awaited<NoInfer<ARR>>, after:After):ASS;
-    ASSERTS?:AssertObject<NoInfer<ARR>, NoInfer<ACT>>;
-}
+    ASSERTS?:AssertSnapshotObject<NoInfer<ARR>, NoInfer<ACT>>;
+    SNAPSHOTS?:AssertSnapshotObject<NoInfer<ARR>, NoInfer<ACT>>;
+} | {
+    ARRANGE?(after:After):ARR;
+    SNAPSHOT?(arrange:Awaited<NoInfer<ARR>>, after:After):ACT;
+    ASSERT?(act:Awaited<NoInfer<ACT>>, arrange:Awaited<NoInfer<ARR>>, after:After):ASS;
+    ASSERTS?:AssertSnapshotObject<NoInfer<ARR>, NoInfer<ACT>>;
+};
+
 export type TestFunction = {
-    <ARR, ACT, ASS>(description: string, testData: TestInterface<ARR, ACT, ASS>): Promise<void>;
+    <ARR, ACT, ASS>(description:string, testData:TestInterface<ARR, ACT, ASS>):Promise<void>;
     test:TestFunction;
-    describe(description: string, cb: (test:TestFunction, after:After) => unknown): Promise<void>;
+    describe(description:string, cb:(test:TestFunction, after:After)=>unknown):Promise<void>;
 };
 export type RunTestFileOptions = {
     clearModuleCache:boolean;
@@ -43,6 +55,21 @@ export type Summary = {
         error:string
     }[];
 };
+export type TestOptions = {
+    snapshotsFolder?:string;
+    confirmSnapshots?:boolean;
+    reviewSnapshots?:boolean;
+};
+type FullTestOptions = {
+    description:string;
+    descriptionPath:string[];
+} & Required<TestOptions>;
+type TestContext = {
+    send:(msg:Messages)=>void;
+    readFile(path:string):Promise<Buffer>;
+    writeFile(path:string, data:Buffer):Promise<void>;
+};
+const VALID_NAME_REGEX = /[^\w\-. ]/g;
 
 let ids = 0;
 class Test<ARR = any, ACT = any, ASS = any> {
@@ -58,11 +85,11 @@ class Test<ARR = any, ACT = any, ASS = any> {
         this._afters.unshift(() => cb(data));
         return data;
     };
-    constructor(readonly _send:(msg:Messages)=>void, readonly description:string, readonly data?:TestInterface<ARR, ACT, ASS>|DescribeCallback) {}
+    constructor(private _context:TestContext, private _options:FullTestOptions, readonly data?:TestInterface<ARR, ACT, ASS>|DescribeCallback) {}
     async run() {
         try {
             try {
-                this._send({
+                this._context.send({
                     id: this.id,
                     type: MessageType.START
                 });
@@ -78,13 +105,13 @@ class Test<ARR = any, ACT = any, ASS = any> {
             if (firstTestError) {
                 throw firstTestError.error;
             }
-            this._send({
+            this._context.send({
                 id: this.id,
                 type: MessageType.END
             });
             this._promise.resolve();
         } catch (e) {
-            this._send({
+            this._context.send({
                 id: this.id,
                 type: MessageType.END,
                 error: Util.format(e)
@@ -106,6 +133,12 @@ class Test<ARR = any, ACT = any, ASS = any> {
         }
         return [];
     }
+    private _getSnapshots() {
+        if (typeof this.data === "object" && "SNAPSHOTS" in this.data && this.data.SNAPSHOTS) {
+            return Object.entries(this.data.SNAPSHOTS);
+        }
+        return [];
+    }
     describe(description:string, cb:DescribeCallback) {
         return this._add(description, cb);
     }
@@ -113,19 +146,23 @@ class Test<ARR = any, ACT = any, ASS = any> {
         return this._add(description, testData);
     }
     private _add<ARR, ASS, ACT>(description:string, testData:TestInterface<ARR, ASS, ACT>|DescribeCallback) {
-        const test = new Test(this._send, description, testData);
+        const test = new Test(this._context, {
+            ...this._options,
+            description: description,
+            descriptionPath: [...this._options.descriptionPath, description]
+        }, testData);
         if (this._finished) {
             // TODO: Test this error in single and parallel
             test._promise.reject(new Error("This test is closed. Can't add new tests to it"));
         } else {
             this._tests.push(test);
             this._pending.push(test);
-            this._send({
+            this._context.send({
                 id: test.id,
                 type: MessageType.ADDED,
                 test: {
                     parentId: this.id,
-                    description: test.description,
+                    description: description,
                     type: test._isDescribe() ? TestType.DESCRIBE : TestType.TEST
                 }
             });
@@ -158,24 +195,65 @@ class Test<ARR = any, ACT = any, ASS = any> {
         }
     }
     private async _runDescribe(cb?:DescribeCallback) {
-        const result = await functionRunner("describe", cb, [buildTestFunction(this), this._addAfter]);
+        const result = await functionRunner("describe", cb || null, [buildTestFunction(this), this._addAfter]);
         if (result.run && !result.ok) {
             throw result.error;
         }
     }
+    private async _checkSnapshot(testData:unknown, description?:string) {
+        const pathNames = [...this._options.descriptionPath, description || ""].map(name => name.replace(VALID_NAME_REGEX, "_"));
+        let file = Path.join(this._options.snapshotsFolder, ...pathNames);
+        if (file.length > 255) {
+            // Truncate long filenames and hash them to always be the same without collision
+            file = `${file.substring(0, 238)}.${Crypto.createHash("shake128").update(Path.join(...pathNames)).digest("hex").substring(0, 16)}`; // 238 + dot + 16 = 255
+        }
+        if (this._options.reviewSnapshots) {
+            throw new Error(`Review snapshot: ${file}\nValue: ${Util.inspect(testData, false, Infinity, false)}`);
+        }
+        let fileData;
+        try {
+            fileData = V8.deserialize(await this._context.readFile(file)) as unknown;
+        } catch (e) {}
+        if (fileData) {
+            Assert.deepStrictEqual(testData, fileData);
+        } else if (!this._options.confirmSnapshots) {
+            throw new Error(`Confirm snapshot: ${file}\nValue: ${Util.inspect(testData, false, Infinity, false)}`);
+        } else {
+            await this._context.writeFile(file, V8.serialize(testData));
+        }
+    }
+    private _runSnapshot<ARGS extends any[], RES>(cb:((...args:ARGS)=>RES)|null, args:[...ARGS], description?:string) {
+        return functionRunner("SNAPSHOT", cb && (async () => {
+            const result = await cb(...args);
+            await this._checkSnapshot(result, description);
+            return result;
+        }), []);
+    }
     private async _runTest(test:TestInterface<ARR, ACT, ASS>) {
         try {
-            const arrangeResult = await functionRunner("ARRANGE", test.ARRANGE, [this._addAfter]);
+            const arrangeResult = await functionRunner("ARRANGE", test.ARRANGE || null, [this._addAfter]);
             if (arrangeResult.run && !arrangeResult.ok) {
                 throw arrangeResult.error;
             }
-            const actResult = await functionRunner("ACT", test.ACT, [arrangeResult.data, this._addAfter]);
-            if (actResult.run && !actResult.ok) {
-                throw actResult.error;
+            const actResult = await functionRunner("ACT", "ACT" in test && test.ACT || null, [arrangeResult.data, this._addAfter]);
+            let actResultData;
+            let snapshotResult;
+            if (actResult.run) {
+                if (!actResult.ok) {
+                    throw actResult.error;
+                }
+                actResultData = actResult.data;
+            } else {
+                // TODO: Test SNAPSHOT
+                snapshotResult = await this._runSnapshot("SNAPSHOT" in test && test.SNAPSHOT || null, [arrangeResult.data, this._addAfter]);
+                if (snapshotResult.run && !snapshotResult.ok) {
+                    throw snapshotResult.error;
+                }
+                actResultData = snapshotResult.data;
             }
             if (test.ASSERT) {
                 const id = ids++;
-                this._send({
+                this._context.send({
                     id: id,
                     type: MessageType.ADDED,
                     test: {
@@ -184,31 +262,31 @@ class Test<ARR = any, ACT = any, ASS = any> {
                         type: TestType.ASSERT
                     }
                 });
-                this._send({
+                this._context.send({
                     id: id,
                     type: MessageType.START
                 });
-                const assertResult = await functionRunner("ASSERT", test.ASSERT, [actResult.data, arrangeResult.data, this._addAfter]);
+                const assertResult = await functionRunner("ASSERT", test.ASSERT, [actResultData, arrangeResult.data, this._addAfter]);
                 if (assertResult.run) {
                     if (!assertResult.ok) {
-                        this._send({
+                        this._context.send({
                             id: id,
                             type: MessageType.END,
                             error: Util.format(assertResult.error)
                         });
                         throw assertResult.error;
                     }
-                    this._send({
+                    this._context.send({
                         id: id,
                         type: MessageType.END
                     });
                 }
             }
-            let assertError:RunMonad<any>|null = null;
+            let assertError = null;
             for (const [description, cb] of this._getAsserts()) {
-                // TODO: Test mutiple asserts
+                // TODO: Test mutiple ASSERTS
                 const id = ids++;
-                this._send({
+                this._context.send({
                     id: id,
                     type: MessageType.ADDED,
                     test: {
@@ -217,13 +295,13 @@ class Test<ARR = any, ACT = any, ASS = any> {
                         type: TestType.ASSERT
                     }
                 });
-                this._send({
+                this._context.send({
                     id: id,
                     type: MessageType.START
                 });
-                const assertResult = await functionRunner("ASSERT", cb, [actResult.data, arrangeResult.data, this._addAfter]);
+                const assertResult = await functionRunner("ASSERT", cb, [actResultData, arrangeResult.data, this._addAfter]);
                 if (assertResult.run && !assertResult.ok) {
-                    this._send({
+                    this._context.send({
                         id: id,
                         type: MessageType.END,
                         error: Util.format(assertResult.error)
@@ -232,10 +310,45 @@ class Test<ARR = any, ACT = any, ASS = any> {
                         assertError = assertResult;
                     }
                 } else {
-                    this._send({
+                    this._context.send({
                         id: id,
                         type: MessageType.END
                     });
+                }
+            }
+            if (!snapshotResult || !snapshotResult.run) {
+                for (const [description, cb] of this._getSnapshots()) {
+                    // TODO: Test multiple SNAPSHOTS
+                    const id = ids++;
+                    this._context.send({
+                        id: id,
+                        type: MessageType.ADDED,
+                        test: {
+                            parentId: this.id,
+                            description: description,
+                            type: TestType.ASSERT
+                        }
+                    });
+                    this._context.send({
+                        id: id,
+                        type: MessageType.START
+                    });
+                    const snapshotResult = await this._runSnapshot(cb, [actResultData, arrangeResult.data, this._addAfter], description);
+                    if (snapshotResult.run && !snapshotResult.ok) {
+                        this._context.send({
+                            id: id,
+                            type: MessageType.END,
+                            error: Util.format(snapshotResult.error)
+                        });
+                        if (!assertError) {
+                            assertError = snapshotResult;
+                        }
+                    } else {
+                        this._context.send({
+                            id: id,
+                            type: MessageType.END
+                        });
+                    }
                 }
             }
             if (assertError) {
@@ -285,8 +398,23 @@ class Root extends Test {
         failed: []
     };
     private _summaryMap = new Map<string, TestInfo>();
-    constructor(readonly notifyParentProcess:((msg:{type:"testRunner", data:Messages})=>void)|null) {
-        super(msg => this.processMessage("", msg), "");
+    constructor(
+        readonly notifyParentProcess:((msg:{type:"testRunner", data:Messages})=>void)|null, options?:TestOptions) {
+        super({
+            send: msg => this.processMessage("", msg),
+            readFile: file => Fs.promises.readFile(file),
+            async writeFile(path, data) {
+                await Fs.promises.mkdir(Path.dirname(path), { recursive: true });
+                await Fs.promises.writeFile(path, data);
+            }
+        }, {
+            descriptionPath: [],
+            description: "",
+            snapshotsFolder: Path.join(process.cwd(), "snapshots"),
+            confirmSnapshots: false,
+            reviewSnapshots: false,
+            ...options
+        });
     }
     processMessage(fileId:string, msg:Messages) {
         if ("id" in msg && msg.id === this.id) {
@@ -440,15 +568,15 @@ function buildTestFunction(myTest:Test|null):TestFunction {
     return test;
 }
 
-export function newRoot() {
+export function newRoot(options?:TestOptions) {
     // Check notifyParentProcess inside of the function so can be reset during testing
     const notifyParentProcess = process.env.AAA_TEST_FILE && process.send && process.send.bind(process) || null;
-    return root = new Root(notifyParentProcess);
+    return root = new Root(notifyParentProcess, options);
 }
 
 if (process.env.AAA_TEST_FILE && process.send) {
     // Create a root file when running inside a test suite child process
-    newRoot();
+    newRoot(process.env.AAA_TEST_OPTIONS ? JSON.parse(process.env.AAA_TEST_OPTIONS) : {});
 }
 
 export default buildTestFunction(null);

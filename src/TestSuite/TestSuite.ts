@@ -3,16 +3,24 @@ import * as OS from "os";
 import { SpawnTestFileOptions } from "../spawnTestFile/spawnTestFile";
 import { parallelize } from "../parallelize/parallelize";
 import { MainContext } from "./MainContext";
-import { newRoot, RunTestFileOptions, Summary } from "../testRunner/testRunner";
+import { newRoot, RunTestFileOptions, Summary, TestOptions } from "../testRunner/testRunner";
 import { Formatter } from "../formatters";
 import { DefaultFormatter } from "../formatters/default";
 import { ReadDirOptions } from "../readDir/readDir";
+
+
+
+
+
+        // El usuario debe ejecutar el comando --confirm-snapshots para confirmar la revisión
+        // Habrá un comando de --review-snapshots para revisarlos
+
 
 export type TestSuiteOptions = {
     parallel:number;
     folder:string;
     formatter:Formatter;
-} & ReadDirOptions & SpawnTestFileOptions & RunTestFileOptions;
+} & ReadDirOptions & SpawnTestFileOptions & RunTestFileOptions & TestOptions;
 
 export type TestResult = {
     files:string[];
@@ -30,17 +38,18 @@ const DEFAULT_OPTIONS:TestSuiteOptions = {
     clearModuleCache: false,
     formatter: new DefaultFormatter()
 };
-export interface TestSuiteContext {
+export type TestSuiteContext = {
     getFiles(path:string, options:ReadDirOptions):Promise<string[]>;
-}
+};
 export class TestSuite {
     options;
-    private _root = newRoot();
+    private _root;
     constructor(options:Partial<TestSuiteOptions>, readonly context:TestSuiteContext = new MainContext()) {
         this.options = {
             ...DEFAULT_OPTIONS,
             ...options
         };
+        this._root = newRoot(this.options);
         if (!Number.isFinite(this.options.parallel) || this.options.parallel < 0) { // TODO: test Number.isFinite
             throw new Error("Invalid parallel option. Must be >= 0");
         }

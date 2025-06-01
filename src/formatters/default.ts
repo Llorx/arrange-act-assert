@@ -12,18 +12,18 @@ export const enum Style {
     Yellow = "\x1b[93m"
 }
 
-class Test {
-    readonly children:Test[] = [];
-    private readonly _pendingShown:Test[] = [];
+class TestFormatter {
+    readonly children:TestFormatter[] = [];
+    private readonly _pendingShown:TestFormatter[] = [];
     private _shown = false;
-    private _pendingLogs:[test:Test, logs:Parameters<typeof this._log>][] = [];
-    private _pending = new Set<Test>;
-    private _next:Test|null = null;
+    private _pendingLogs:[test:TestFormatter, logs:Parameters<typeof this._log>][] = [];
+    private _pending = new Set<TestFormatter>;
+    private _next:TestFormatter|null = null;
     private _startLogged = false;
     childrenOk = true;
     ended = false;
     error:string|null = null;
-    constructor(readonly out:((msg:string) => void)|null, readonly info:TestInfo, readonly level:number, readonly parent:Test|null) {}
+    constructor(readonly out:((msg:string) => void)|null, readonly info:TestInfo, readonly level:number, readonly parent:TestFormatter|null) {}
     private _setChildError() {
         if (this.childrenOk) {
             this.childrenOk = false;
@@ -32,7 +32,7 @@ class Test {
             }
         }
     }
-    private _startChild(test:Test) {
+    private _startChild(test:TestFormatter) {
         if (this._next === test) {
             if (this._shown) {
                 test.show();
@@ -43,7 +43,7 @@ class Test {
             this._pending.add(test);
         }
     }
-    private _endChild(test:Test) {
+    private _endChild(test:TestFormatter) {
         if (test.error) {
             this._setChildError();
         }
@@ -86,7 +86,7 @@ class Test {
             this._log(Style.Green, "√", this.info.description);
         }
     }
-    addChild(test:Test) {
+    addChild(test:TestFormatter) {
         this.children.push(test);
         if (!this._next) {
             this._next = test;
@@ -134,7 +134,7 @@ class Test {
             this._addLogs([style, icon, ...args]);
         }
     }
-    private _addLogs(args:Parameters<typeof this._log>, test:Test = this) {
+    private _addLogs(args:Parameters<typeof this._log>, test:TestFormatter = this) {
         if (this.parent && !this.parent._shown) {
             this.parent._addLogs(args, test);
         } else {
@@ -142,8 +142,8 @@ class Test {
         }
     }
 }
-class Root extends Test {
-    constructor(parent:Test|null) {
+class Root extends TestFormatter {
+    constructor(parent:TestFormatter|null) {
         super(null, {
             parentId: -1,
             description: "",
@@ -168,7 +168,7 @@ function formatSummaryResult(title:string, result:SummaryResult) {
 
 export class DefaultFormatter implements Formatter {
     private readonly _root = new Root(null);
-    private readonly tests = new Map<string, Test>();
+    private readonly tests = new Map<string, TestFormatter>();
     constructor(private readonly _out:(msg:string)=>void = console.log) {
         this._root.show();
     }
@@ -184,7 +184,7 @@ export class DefaultFormatter implements Formatter {
             const test = this.tests.get(getUid(fileId, id));
             if (test && test.childrenOk) {
                 const lines:string[] = [];
-                let parent:Test|null = test;
+                let parent:TestFormatter|null = test;
                 while (parent && !(parent instanceof Root)) {
                     const pad = " ".repeat((parent.level * 2));
                     if (parent === test) {
@@ -202,10 +202,6 @@ export class DefaultFormatter implements Formatter {
         if (summary.test.count === 0) {
             // TODO: Test no tests run
             throw new Error("No test run");
-        }
-        if (summary.assert.count === 0) {
-            // TODO: Test no asserts run
-            throw new Error("No asserts run");
         }
         return summary;
     }
@@ -236,7 +232,7 @@ export class DefaultFormatter implements Formatter {
                             parent = this._root;
                         }
                     }
-                    const test = new Test(this._out, msg.test, parent.level + 1, parent);
+                    const test = new TestFormatter(this._out, msg.test, parent.level + 1, parent);
                     parent.addChild(test);
                     this.tests.set(testId, test);
                 }
