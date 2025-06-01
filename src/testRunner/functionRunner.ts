@@ -12,7 +12,7 @@ export type RunMonad<T = unknown> = {
     type:string;
 };
 
-export async function functionRunner<ARGS extends any[], RES>(type:string, cb:((...args:ARGS)=>RES)|undefined, args:ARGS):Promise<RunMonad<Awaited<RES>>> {
+export async function functionRunner<ARGS extends any[], RES>(type:string, cb:((...args:ARGS)=>RES)|null, args:[...ARGS]):Promise<RunMonad<Awaited<RES>>> {
     if (!cb) {
         return {
             run: false,

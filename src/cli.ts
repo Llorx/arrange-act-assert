@@ -43,7 +43,23 @@ const clearModuleCache = args.get("clear-module-cache");
 if (clearModuleCache) {
     options.clearModuleCache = true;
 }
-
+const snapshotsFolder = args.get("snapshots-folder");
+if (snapshotsFolder) {
+    if (snapshotsFolder.length === 0) {
+        throw new Error(`--snapshots-folder needs a value`);
+    } else if (snapshotsFolder.length > 1) {
+        throw new Error(`Only one --snapshots-folder argument is allowed`);
+    }
+    options.snapshotsFolder = snapshotsFolder[0];
+}
+const confirmSnapshots = args.get("confirm-snapshots");
+if (confirmSnapshots) {
+    options.confirmSnapshots = true;
+}
+const reviewSnapshots = args.get("review-snapshots");
+if (reviewSnapshots) {
+    options.reviewSnapshots = true;
+}
 const suite = new TestSuite(options);
 suite.run().then(result => {
     if (!result.ok) {

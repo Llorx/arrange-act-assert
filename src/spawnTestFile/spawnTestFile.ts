@@ -1,13 +1,18 @@
 import { spawn } from "child_process";
+import { TestOptions } from "../testRunner/testRunner";
 
 export type SpawnTestFileOptions = {
     prefix:string[];
-};
+} & TestOptions;
 
 export function spawnTestFile(path:string, options:SpawnTestFileOptions, cb:(msg:unknown)=>void) {
     return new Promise<void>((resolve, reject) => {
         const testProcess = spawn(process.execPath, [...options.prefix, path], {
-            env: {...process.env, AAA_TEST_FILE: "1"},
+            env: {...process.env, AAA_TEST_FILE: "1", AAA_TEST_OPTIONS: JSON.stringify({
+                snapshotsFolder: options.snapshotsFolder,
+                confirmSnapshots: options.confirmSnapshots,
+                reviewSnapshots: options.reviewSnapshots
+            })},
             stdio: ["ignore", "pipe", "pipe", "ipc"]
         });
         const out:Uint8Array[] = [];

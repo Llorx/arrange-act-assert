@@ -254,6 +254,9 @@ The `aaa` cli command accepts these options:
 - `--exclude-files REGEX`: The regex to apply to each full file path found to exclude it. Defaults to `\/node_modules\/`.
 - `--spawn-args-prefix PREFIX`: It will launch the test files with this prefix in the arguments. You can set multiple prefixes by setting this option multiple times.
 - `--clear-module-cache`: When you run test files with `parallel` set to `0` (same process), this flag will delete the module cache so when the TestSuite requires a test file, NodeJS will re-require and re-evaluate the file and its dependencies instead of returning the cache, just in case that you need everything clean.
+- `--snapshots-folder`: Folder to place the snapshot files. Defaults to `./snapshots`. More info in the **Snapshots** section.
+- `--confirm-snapshots`: Confirm that the new snapshots that do not exist in the snapshots-folder are valid. More info in the **Snapshots** section.
+- `--review-snapshots`: Show all the snapshot outputs to check their values.
 
 Alternatively, you can import the `TestSuite` and run your tests programatically:
 ```typescript
@@ -287,6 +290,9 @@ type TestSuiteOptions = {
     // By default it will output the results in the stdout
     // Example: `https://github.com/Llorx/arrange-act-assert/blob/main/src/formatters/default.ts` search for "DefaultFormatter implements Formatter".
     formatter:Formatter;
+    snapshotsFolder?:string; // Folder to place the snapshots. Defaults to "./snapshots"
+    confirmSnapshots?:boolean; // To confirm the new snapshots, as stated in the "Snapshots" section
+    reviewSnapshots?:boolean; // To review all the snapshots, as stated in the "Snapshots" section
 };
 
 // The result
@@ -308,9 +314,9 @@ type SummaryResult = { // Self-explanatory
     error:number;
 };
 ```
-To assert errors, you can use the `monad` and `asyncMonad` utils:
+To assert errors, you can use the `monad` util:
 ```typescript
-import { test, monad, asyncMonad } from "arrange-act-assert";
+import { test, monad } from "arrange-act-assert";
 
 import { thing, asyncThing } from "./myThing";
 
@@ -326,7 +332,7 @@ test("Should throw an error when invalid arguments", {
 });
 test("Should throw an error when invalid arguments in async function", {
     async ACT() {
-        return await asyncMonad(async () => await thing(-1));
+        return await monad(async () => await thing(-1));
     },
     ASSERT(res) {
         res.should.error({
@@ -335,4 +341,63 @@ test("Should throw an error when invalid arguments in async function", {
     }
 });
 ```
-They will return a `Monad` object with the methods `should.ok(VALUE)`, `should.error(ERROR)` and `match({ ok:(value)=>void, error:(error)=>void })`. The error validation is done using the [NodeJS Assert.throws() error argument](https://nodejs.org/api/assert.html#assertthrowsfn-error-message).
+It will return a `Monad` object with the methods `should.ok(VALUE)`, `should.error(ERROR)` and `match({ ok:(value)=>void, error:(error)=>void })`. The error validation is done using the [NodeJS Assert.throws() error argument](https://nodejs.org/api/assert.html#assertthrowsfn-error-message).
+
+# Snapshots
+There's a snapshots system to easily assert method outputs that should return the same values between tests.
+
+To ensure that snapshots are validated, a confirmation process is implemented: It will first show the snapshot output for you to review manually. You must check that the outputs are valid and then the run the tests again with the `--confirm-snapshots` (cli) or `confirmSnapshots: true` (programmatically) option so the new snapshots are saved into a file.
+
+The snapshots are binary files serialized with the [V8.serialize()](https://nodejs.org/api/v8.html#v8serializevalue) method, so all types supported by this serialization method are valid. If you want to review them again, you must use the `--review-snapshots` (cli) or `reviewSnapshots: true` (programmatically) option.
+
+If you want to regenerate a snapshot, you must delete the snapshot file from the filesystem manually and run again the snapshot confirmation process.
+
+Snapshots are asserted using the [deepStrictEqual()](https://nodejs.org/api/assert.html#assertdeepstrictequalactual-expected-message) method.
+
+The folder/file structure uses the describe, tests and snapshots descriptions to create the structure, for easy recognition of which test applies to which file.
+
+Example:
+```ts
+import { test } from "arrange-act-assert";
+
+import { ThingToTest } from "./ThingToTest";
+
+test("Should return a valid thang", {
+    ARRANGE() {
+        return new ThingToTest();
+    },
+    SNAPSHOT(thing) { // This will snapshot what getThang() returns to a file and assert it on next runs
+        return thing.getThang();
+    },
+    // Although SNAPSHOT may be considered an assertion itself, you can also ASSERT/ASSERTS the result if needed
+    ASSERT(res) {...},
+    ASSERTS: {
+        "assert 1"(res) {...},
+        "assert 2"(res) {...}
+    }
+});
+test("Should return multiple thangs", {
+    ARRANGE() {
+        return new ThingToTest();
+    },
+    ACT(thing) {
+        return thing.getThangs();
+    },
+    // If, instead of the full ACT, you need to snapshot different parts of an ACT individually
+    // you can create multiple snapshots with this format:
+    SNAPSHOTS: {
+        "should be oneThang"(res) {
+            return res.oneThang;
+        },
+        "should be twoThang"(res) {
+            return res.twoThang;
+        }
+    },
+    // And you can also ASSERT/ASSERTS the ACT result if needed
+    ASSERT(res) {...},
+    ASSERTS: {
+        "assert 1"(res) {...},
+        "assert 2"(res) {...}
+    }
+});
+```

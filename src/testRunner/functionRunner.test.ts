@@ -32,7 +32,7 @@ test.describe("functionRunner", (test) => {
     });
     test("Should not run an undefined argument", {
         async ACT() {
-            return await functionRunner("test", undefined, []);
+            return await functionRunner("test", null, []);
         },
         ASSERT(result) {
             Assert.deepStrictEqual(result, {
