@@ -1102,7 +1102,7 @@ test.describe("testRunner", (test) => {
                         type: MessageType.ADDED,
                         test: {
                             parentId: String(rootId),
-                            description: "assertNumber1",
+                            description: "assertNumber1 (test inside test, obviate)",
                             type: TestType.DESCRIBE
                         }
                     }, {
@@ -1113,7 +1113,7 @@ test.describe("testRunner", (test) => {
                         type: MessageType.ADDED,
                         test: {
                             parentId: "+0",
-                            description: "should work",
+                            description: "should work (test inside test, obviate)",
                             type: TestType.TEST
                         }
                     }, {
@@ -1124,7 +1124,7 @@ test.describe("testRunner", (test) => {
                         type: MessageType.ADDED,
                         test: {
                             parentId: "+0",
-                            description: "should not work",
+                            description: "should not work (test inside test, obviate)",
                             type: TestType.TEST
                         }
                     }, {

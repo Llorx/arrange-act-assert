@@ -1,4 +1,4 @@
-import * as UTIL from "util";
+import * as Util from "util";
 
 import { functionRunner, RunMonad } from "./functionRunner";
 import { clearModuleCache, ResolvablePromise, resolvablePromise } from "../utils/utils";
@@ -87,7 +87,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
             this._send({
                 id: this.id,
                 type: MessageType.END,
-                error: UTIL.format(e)
+                error: Util.format(e)
             });
             this._promise.reject(e);
         }
@@ -194,7 +194,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
                         this._send({
                             id: id,
                             type: MessageType.END,
-                            error: UTIL.format(assertResult.error)
+                            error: Util.format(assertResult.error)
                         });
                         throw assertResult.error;
                     }
@@ -226,7 +226,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
                     this._send({
                         id: id,
                         type: MessageType.END,
-                        error: UTIL.format(assertResult.error)
+                        error: Util.format(assertResult.error)
                     });
                     if (!assertError) {
                         assertError = assertResult;

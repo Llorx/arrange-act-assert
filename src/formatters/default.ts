@@ -1,15 +1,15 @@
-import * as UTIL from "util";
+import * as Util from "util";
 
 import { TestInfo, Messages, MessageType, Formatter, TestType } from "."
 import { Summary, SummaryResult } from "../testRunner/testRunner";
 
-export const enum STYLE {
-    NONE = "",
-    RESET = "\x1b[0m",
-    BOLD = "\x1b[1m",
-    GREEN = "\x1b[92m",
-    RED = "\x1b[91m",
-    YELLOW = "\x1b[93m"
+export const enum Style {
+    None = "",
+    Reset = "\x1b[0m",
+    Bold = "\x1b[1m",
+    Green = "\x1b[92m",
+    Red = "\x1b[91m",
+    Yellow = "\x1b[93m"
 }
 
 class Test {
@@ -63,27 +63,27 @@ class Test {
     private _logStart() {
         if (!this._startLogged) {
             this._startLogged = true; // Flag as mutiple childs can notify this log
-            this._log(STYLE.BOLD, "►", this.info.description);
+            this._log(Style.Bold, "►", this.info.description);
         }
     }
     private _logEnd() {
         if (this._startLogged) {
             if (this.error) {
                 if (this.childrenOk) {
-                    this._log(STYLE.RED, "X", `${this.info.description}:\n`, this.error);
+                    this._log(Style.Red, "X", `${this.info.description}:\n`, this.error);
                 } else {
-                    this._log(STYLE.YELLOW, "►", this.info.description);
+                    this._log(Style.Yellow, "►", this.info.description);
                 }
             } else {
-                this._log(STYLE.NONE, "√", this.info.description);
+                this._log(Style.None, "√", this.info.description);
             }
         } else if (this.error) {
-            this._log(STYLE.RED, "X", `${this.info.description}:\n`, this.error);
+            this._log(Style.Red, "X", `${this.info.description}:\n`, this.error);
         } else if (this._startLogged) {
             // TODO: Test delayed tests
-            this._log(STYLE.NONE, "√", this.info.description);
+            this._log(Style.None, "√", this.info.description);
         } else {
-            this._log(STYLE.GREEN, "√", this.info.description);
+            this._log(Style.Green, "√", this.info.description);
         }
     }
     addChild(test:Test) {
@@ -114,16 +114,16 @@ class Test {
             test._log(...args);
         }
     }
-    private _log(style:STYLE, icon:string, ...args:any[]) {
+    private _log(style:Style, icon:string, ...args:any[]) {
         if (this._shown) {
             if (this.out) {
                 const pad = " ".repeat((this.level * 2));
                 icon = icon ? `${icon} ` : icon;
                 const padIcon = " ".repeat((icon.length));
-                const formatted = args.map(arg => UTIL.format("%s", arg)).join("");
+                const formatted = args.map(arg => Util.format("%s", arg)).join("");
                 const lines = formatted.split("\n").map((line, i) => {
                     if (i === 0) {
-                        return `${pad}${style}${icon}${line}${STYLE.RESET}`;
+                        return `${pad}${style}${icon}${line}${Style.Reset}`;
                     } else {
                         return `${pad + padIcon}${line}`;
                     }
@@ -157,11 +157,11 @@ function getUid(fileId:string, testId:number) {
 }
 
 function formatSummaryResult(title:string, result:SummaryResult) {
-    const okColor = result.error > 0 ? STYLE.YELLOW : STYLE.GREEN;
-    let msg = `- ${title}: ${result.count === 0 ? STYLE.RED : okColor}${result.count}${STYLE.RESET}`;
+    const okColor = result.error > 0 ? Style.Yellow : Style.Green;
+    let msg = `- ${title}: ${result.count === 0 ? Style.Red : okColor}${result.count}${Style.Reset}`;
     if (result.error > 0) {
-        msg += `\n  · OK: ${result.ok === 0 ? STYLE.RED : okColor}${result.ok}${STYLE.RESET}`;
-        msg += `\n  · ERROR: ${STYLE.RED}${result.error}${STYLE.RESET}`;
+        msg += `\n  · OK: ${result.ok === 0 ? Style.Red : okColor}${result.ok}${Style.Reset}`;
+        msg += `\n  · ERROR: ${Style.Red}${result.error}${Style.Reset}`;
     }
     return msg;
 }
@@ -173,7 +173,7 @@ export class DefaultFormatter implements Formatter {
         this._root.show();
     }
     formatSummary(summary:Summary) {
-        this._out(`\n${STYLE.BOLD}Summary:${STYLE.RESET}`);
+        this._out(`\n${Style.Bold}Summary:${Style.Reset}`);
         this._out(formatSummaryResult("Asserts", summary.assert));
         this._out(formatSummaryResult("Tests", summary.test));
         if (summary.describe.count > 0) {
@@ -188,13 +188,13 @@ export class DefaultFormatter implements Formatter {
                 while (parent && !(parent instanceof Root)) {
                     const pad = " ".repeat((parent.level * 2));
                     if (parent === test) {
-                        lines.unshift(`${pad}${STYLE.RED}X ${parent.info.description}:${STYLE.RESET}`);
+                        lines.unshift(`${pad}${Style.Red}X ${parent.info.description}:${Style.Reset}`);
                     } else {
-                        lines.unshift(`${pad}${STYLE.BOLD}► ${parent.info.description}${STYLE.RESET}`);
+                        lines.unshift(`${pad}${Style.Bold}► ${parent.info.description}${Style.Reset}`);
                     }
                     parent = parent.parent;
                 }
-                this._out(`${STYLE.YELLOW}[X]----- - - - -  -  -   -${STYLE.RESET}`);
+                this._out(`${Style.Yellow}[X]----- - - - -  -  -   -${Style.Reset}`);
                 this._out(lines.join("\n"));
                 this._out(error);
             }

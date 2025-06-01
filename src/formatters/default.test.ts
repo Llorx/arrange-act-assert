@@ -2,7 +2,7 @@ import * as Assert from "assert";
 
 import test from "arrange-act-assert";
 
-import { DefaultFormatter, STYLE } from "./default";
+import { DefaultFormatter, Style } from "./default";
 import { MessageType, TestType } from ".";
 
 test.describe("default formatter", (test) => {
@@ -14,11 +14,11 @@ test.describe("default formatter", (test) => {
         assert(check:unknown[][]) {
             const checkLogs = check.map(line => line.join(" "));
             const logs = this.logs.map(msg => {
-                return msg.replaceAll(STYLE.BOLD, "")
-                    .replaceAll(STYLE.GREEN, "")
-                    .replaceAll(STYLE.YELLOW, "")
-                    .replaceAll(STYLE.RED, "")
-                    .replaceAll(STYLE.RESET, "");
+                return msg.replaceAll(Style.Bold, "")
+                    .replaceAll(Style.Green, "")
+                    .replaceAll(Style.Yellow, "")
+                    .replaceAll(Style.Red, "")
+                    .replaceAll(Style.Reset, "");
             });
             Assert.deepStrictEqual(logs, checkLogs);
             this.logs.splice(0);

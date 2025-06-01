@@ -4,28 +4,28 @@ import { test } from "arrange-act-assert";
 import { TestSuite } from "./TestSuite/TestSuite";
 import { monad, asyncMonad } from "./monad/monad";
 
-import * as INDEX from "./index";
+import * as Index from "./index";
 
 test.describe("index", () => {
     test("Should export all methods and utils", {
         ASSERTS: {
             "should export test function"() {
-                Assert.strictEqual(typeof INDEX.test, "function");
+                Assert.strictEqual(typeof Index.test, "function");
             },
             "should export describe function"() {
-                Assert.strictEqual(typeof INDEX.describe, "function");
+                Assert.strictEqual(typeof Index.describe, "function");
             },
             "should export test function as default"() {
-                Assert.strictEqual(INDEX.default, INDEX.test);
+                Assert.strictEqual(Index.default, Index.test);
             },
             "should export TestSuite"() {
-                Assert.strictEqual(INDEX.TestSuite, TestSuite);
+                Assert.strictEqual(Index.TestSuite, TestSuite);
             },
             "should export monad util"() {
-                Assert.strictEqual(INDEX.monad, monad);
+                Assert.strictEqual(Index.monad, monad);
             },
             "should export asyncMonad util"() {
-                Assert.strictEqual(INDEX.asyncMonad, asyncMonad);
+                Assert.strictEqual(Index.asyncMonad, asyncMonad);
             }
         }
     });

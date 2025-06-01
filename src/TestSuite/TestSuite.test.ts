@@ -1,4 +1,4 @@
-import * as PATH from "path";
+import * as Path from "path";
 import * as Assert from "assert";
 
 import { monad, test, TestFunction } from "arrange-act-assert";
@@ -26,7 +26,7 @@ test.describe("TestSuite", (test) => {
                     const suite = new TestSuite({
                         parallel: parallel,
                         include: invalid ? [/mytest/g] : [/mytest-ok/g],
-                        folder: PATH.dirname(mockFiles["index"]),
+                        folder: Path.dirname(mockFiles["index"]),
                         ...(parallel === 0 ? { clearModuleCache: true } : {})
                     });
                     if (error) {
@@ -38,14 +38,19 @@ test.describe("TestSuite", (test) => {
                     return suite;
                 },
                 async ACT(suite) {
-                    return await suite.run()
+                    return await suite.run();
                 },
-                ASSERT(res) {
-                    Assert.deepStrictEqual(res.files.sort(), [
-                        mockFiles["file1.mytest-ok"],
-                        mockFiles["file2.mytest-ok"],
-                        ...(invalid ? [mockFiles["file1.mytest-invalid"]] : [])
-                    ].sort());
+                ASSERTS: {
+                    "should list test files"(res) {
+                        Assert.deepStrictEqual(res.files.sort(), [
+                            mockFiles["file1.mytest-ok"],
+                            mockFiles["file2.mytest-ok"],
+                            ...(invalid ? [mockFiles["file1.mytest-invalid"]] : [])
+                        ].sort());
+                    },
+                    [`should ok: ${!invalid && !error}`](res) {
+                        Assert.strictEqual(res.ok, !invalid && !error);
+                    }
                 }
             });
         }
