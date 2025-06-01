@@ -1,6 +1,6 @@
 {
   "name": "arrange-act-assert",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "The lightweight \"Act-Arrange-Assert\" oriented testing framework",
   "main": "lib/",
   "types": "lib/types",
