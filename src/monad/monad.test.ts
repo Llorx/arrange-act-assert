@@ -2,7 +2,7 @@ import * as Assert from "assert";
 
 import { test } from "arrange-act-assert";
 
-import { monad, asyncMonad } from "./monad";
+import { monad } from "./monad";
 
 test.describe("monad", (test) => {
     test.describe("sync", (test) => {
@@ -120,7 +120,7 @@ test.describe("monad", (test) => {
                         error?:unknown;
                     } = {};
                     res.match({
-                        ok(value) {
+                        ok(value:number) {
                             ret.ok = value;
                         },
                         error(error) {
@@ -140,7 +140,7 @@ test.describe("monad", (test) => {
     test.describe("async", (test) => {
         test("should return a promise", {
             ACT() {
-                const promise = asyncMonad(async () => 123);
+                const promise = monad(async () => 123);
                 return { promise };
             },
             ASSERT({ promise }) {
@@ -149,7 +149,7 @@ test.describe("monad", (test) => {
         });
         test("should return object when ok", {
             async ACT() {
-                return await asyncMonad(async () => 123);
+                return await monad(async () => 123);
             },
             ASSERT(res) {
                 Assert.deepStrictEqual(res, {
@@ -161,7 +161,7 @@ test.describe("monad", (test) => {
         });
         test("should return object when error", {
             async ACT() {
-                return await asyncMonad(async () => {
+                return await monad(async () => {
                     throw "ok";
                 });
             },
@@ -176,7 +176,7 @@ test.describe("monad", (test) => {
         test.describe("should.X", (test) => {
             test("should assert ok", {
                 async ACT() {
-                    return await asyncMonad(async () => 123);
+                    return await monad(async () => 123);
                 },
                 ASSERT(res) {
                     Assert.doesNotThrow(() => res.should.ok(123));
@@ -184,7 +184,7 @@ test.describe("monad", (test) => {
             });
             test("should assert error", {
                 async ACT() {
-                    return await asyncMonad(async () => {
+                    return await monad(async () => {
                         throw new Error("ok")
                     });
                 },
@@ -198,7 +198,7 @@ test.describe("monad", (test) => {
         test.describe(".unwrap", (test) => {
             test("should unwrap ok", {
                 async ARRANGE() {
-                    return await asyncMonad(async () => 123);
+                    return await monad(async () => 123);
                 },
                 ACT(res) {
                     return res.unwrap();
@@ -209,7 +209,7 @@ test.describe("monad", (test) => {
             });
             test("should unwrap error", {
                 async ARRANGE() {
-                    return await asyncMonad(async () => {
+                    return await monad(async () => {
                         throw new Error("ok");
                     });
                 },
@@ -226,7 +226,7 @@ test.describe("monad", (test) => {
         test.describe(".match", (test) => {
             test("should match ok", {
                 async ARRANGE() {
-                    return await asyncMonad(async () => 123);
+                    return await monad(async () => 123);
                 },
                 ACT(res) {
                     const ret:{
@@ -251,7 +251,7 @@ test.describe("monad", (test) => {
             });
             test("should match error", {
                 async ARRANGE() {
-                    return await asyncMonad(async () => {
+                    return await monad(async () => {
                         throw "ok";
                     });
                 },

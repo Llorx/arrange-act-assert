@@ -2,7 +2,7 @@ import * as Assert from "assert";
 
 import { test } from "arrange-act-assert";
 import { TestSuite } from "./TestSuite/TestSuite";
-import { monad, asyncMonad } from "./monad/monad";
+import { monad } from "./monad/monad";
 
 import * as Index from "./index";
 
@@ -23,9 +23,6 @@ test.describe("index", () => {
             },
             "should export monad util"() {
                 Assert.strictEqual(Index.monad, monad);
-            },
-            "should export asyncMonad util"() {
-                Assert.strictEqual(Index.asyncMonad, asyncMonad);
             }
         }
     });

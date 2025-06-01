@@ -52,22 +52,31 @@ function monadify<T>(res:MonadObject<T>):Monad<T> {
         }
     };
 }
-export function monad<T>(cb:()=>T):Monad<T> {
-    try {
-        return monadify({
-            ok: cb()
-        });
-    } catch (e) {
-        return monadify({
-            error: e
-        });
-    }
+function isThenable<T>(obj:any):obj is PromiseLike<T> {
+    return obj && typeof obj.then === "function";
 }
-export async function asyncMonad<T>(cb:()=>PromiseLike<T>):Promise<Monad<T>> {
+export function monad<T>(cb:()=>PromiseLike<T>):Promise<Monad<T>>;
+export function monad<T>(cb:()=>T):Monad<T>;
+export function monad<T>(cb:()=>T|PromiseLike<T>):Monad<T>|Promise<Monad<T>> {
     try {
-        return monadify({
-            ok: await cb()
-        });
+        const res = cb();
+        if (isThenable<T>(res)) {
+            return new Promise<Monad<T>>(async resolve => {
+                try {
+                    resolve(monadify({
+                        ok: await res
+                    }));
+                } catch (e) {
+                    resolve(monadify({
+                        error: e
+                    }));
+                }
+            });
+        } else {
+            return monadify({
+                ok: res
+            });
+        }
     } catch (e) {
         return monadify({
             error: e
