@@ -1,18 +1,18 @@
 import * as OS from "os";
 
-import { filterFiles, FilterFilesOptions } from "../filterFiles/filterFiles";
 import { SpawnTestFileOptions } from "../spawnTestFile/spawnTestFile";
 import { parallelize } from "../parallelize/parallelize";
 import { MainContext } from "./MainContext";
 import { newRoot, RunTestFileOptions, Summary } from "../testRunner/testRunner";
 import { Formatter } from "../formatters";
 import { DefaultFormatter } from "../formatters/default";
+import { ReadDirOptions } from "../readDir/readDir";
 
 export type TestSuiteOptions = {
     parallel:number;
     folder:string;
     formatter:Formatter;
-} & FilterFilesOptions & SpawnTestFileOptions & RunTestFileOptions;
+} & ReadDirOptions & SpawnTestFileOptions & RunTestFileOptions;
 
 export type TestResult = {
     files:string[];
@@ -31,7 +31,7 @@ const DEFAULT_OPTIONS:TestSuiteOptions = {
     formatter: new DefaultFormatter()
 };
 export interface TestSuiteContext {
-    getFiles(path:string):Promise<string[]>;
+    getFiles(path:string, options:ReadDirOptions):Promise<string[]>;
 }
 export class TestSuite {
     options;
@@ -61,11 +61,10 @@ export class TestSuite {
         };
     }
     async _run() {
-        const files = await this.context.getFiles(this.options.folder);
-        const testFiles = filterFiles(files, this.options);
+        const files = await this.context.getFiles(this.options.folder, this.options);
         if (this.options.parallel === 0) {
             const errors:unknown[] = [];
-            for (const file of testFiles) {
+            for (const file of files) {
                 try {
                     this._root.runTestFile(file, this.options);
                 } catch (e) {
@@ -73,13 +72,13 @@ export class TestSuite {
                 }
             }
             return {
-                files: testFiles,
+                files: files,
                 errors: errors
             };
         } else {
-            const results = await parallelize(this.options.parallel, this._spawnTestFiles(testFiles));
+            const results = await parallelize(this.options.parallel, this._spawnTestFiles(files));
             return {
-                files: testFiles,
+                files: files,
                 errors: results.filter(result => result.status === "rejected").map(result => result.reason)
             };
         }

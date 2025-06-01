@@ -7,14 +7,18 @@ const args = processArgs(process.argv.slice(2));
 const options:Partial<TestSuiteOptions> = {};
 const folder = args.get("folder");
 if (folder) {
-    if (folder.length > 1) {
+    if (folder.length === 0) {
+        throw new Error(`--folder needs a value`);
+    } else if (folder.length > 1) {
         throw new Error(`Only one --folder argument is allowed`);
     }
     options.folder = folder[0];
 }
 const parallel = args.get("parallel");
 if (parallel != null) {
-    if (parallel.length > 1) {
+    if (parallel.length === 0) {
+        throw new Error(`--parallel needs a value`);
+    } else if (parallel.length > 1) {
         throw new Error(`Only one --parallel argument is allowed`);
     }
     const parallelNumber = Number(parallel[0]);

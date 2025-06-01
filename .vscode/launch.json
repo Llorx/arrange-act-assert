@@ -5,27 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "node",
+            "name": "Launch Program",
+            "program": "${file}",
             "request": "launch",
-            "name": "Run tests",
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "args": [
-                "--test"
-            ]
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Run tests only",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "args": [
-                "--test",
-                "--test-only"
-            ]
+            "type": "node"
         }
     ]
 }
