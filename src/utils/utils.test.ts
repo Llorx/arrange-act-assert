@@ -1,7 +1,7 @@
 import * as Assert from "assert";
 
 import { monad, test } from "arrange-act-assert";
-import { resolvablePromise, clearModuleCache, processArgs } from "./utils";
+import { resolvablePromise, clearModuleCache, getTestSuiteOptions, getTestOptions } from "./utils";
 import { mockFiles } from "../test_folder_mock";
 
 test.describe("utils", (test) => {
@@ -99,41 +99,99 @@ test.describe("utils", (test) => {
             },
         }
     });
-    test.describe("processArgs", (test) => {
+    test.describe("getTestSuiteOptions", (test) => {
         test("should process args", {
-            ACT() {
-                return processArgs(["--src", "mySrc", "--multi", "first", "--empty", "--multi", "second", "--multi", "third", "--emptyFinal"]);
-            },
-            ASSERT(args) {
-                Assert.deepStrictEqual(Array.from(args.entries()), [
-                    ["src", ["mySrc"]],
-                    ["multi", ["first", "second", "third"]],
-                    ["empty", [""]],
-                    ["emptyFinal", [""]]
-                ]);
+            SNAPSHOT() {
+                return getTestSuiteOptions(["--folder", "test", "--exclude-files", "test", "--parallel", "3", "--include-files", "test", "--include-files", "test2", "--exclude-files", "test2", "--spawn-args-prefix", "ok", "--spawn-args-prefix", "ok2", "--clear-module-cache"]);
             }
         });
-        test("should process args with =", {
+        test("should error on empty folder argument", {
             ACT() {
-                return processArgs(["--src", "mySrc", "--multi=first", "--empty", "--multi=second", "--multi", "third", "--emptyFinal"]);
-            },
-            ASSERT(args) {
-                Assert.deepStrictEqual(Array.from(args.entries()), [
-                    ["src", ["mySrc"]],
-                    ["multi", ["first", "second", "third"]],
-                    ["empty", [""]],
-                    ["emptyFinal", [""]]
-                ]);
-            }
-        });
-        test("should error on invalid args", {
-            ACT() {
-                return monad(() => processArgs(["--src", "mySrc", "--multi", "first", "errorArg"]));
+                return monad(() => getTestSuiteOptions(["--folder"]));
             },
             ASSERT(res) {
                 res.should.error({
-                    message: "Invalid argument: errorArg"
+                    message: /folder needs a value/
                 });
+            }
+        });
+        test("should error on multiple folder value", {
+            ACT() {
+                return monad(() => getTestSuiteOptions(["--folder", "f1", "f2"]));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /one --folder argument/
+                });
+            }
+        });
+        test("should error on empty parallel argument", {
+            ACT() {
+                return monad(() => getTestSuiteOptions(["--parallel"]));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /parallel needs a value/
+                });
+            }
+        });
+        test("should error on multiple parallel value", {
+            ACT() {
+                return monad(() => getTestSuiteOptions(["--parallel", "3", "4"]));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /one --parallel argument/
+                });
+            }
+        });
+        test("should error on invalid parallel value", {
+            ACT() {
+                return monad(() => getTestSuiteOptions(["--parallel", "a3"]));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /parallel must be a number/
+                });
+            }
+        });
+    });
+    test.describe("getTestOptions", (test) => {
+        test("should process args", {
+            SNAPSHOT() {
+                return getTestOptions(["--snapshots-folder", "test", "--confirm-snapshots", "--review-snapshots"]);
+            }
+        });
+        test("should error on empty snapshots-folder argument", {
+            ACT() {
+                return monad(() => getTestSuiteOptions(["--snapshots-folder"]));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /snapshots-folder needs a value/
+                });
+            }
+        });
+        test("should error on multiple snapshots-folder value", {
+            ACT() {
+                return monad(() => getTestSuiteOptions(["--snapshots-folder", "f1", "f2"]));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /one --snapshots-folder argument/
+                });
+            }
+        });
+    });
+    test.describe("processArgs", (test) => {
+        test("should process args with equal (=)", {
+            SNAPSHOT() {
+                return getTestSuiteOptions(["--folder=test", "--parallel", "3", "--exclude-files=test", "--include-files", "test", "--include-files=test2", "--exclude-files", "test2", "--spawn-args-prefix", "ok", "--spawn-args-prefix", "ok2", "--clear-module-cache"]);
+            }
+        });
+        test("should process multiple args", {
+            SNAPSHOT() {
+                return getTestSuiteOptions(["--folder=test", "--parallel", "3", "--exclude-files", "test", "test2", "--include-files", "test", "test2"]);
             }
         });
     });

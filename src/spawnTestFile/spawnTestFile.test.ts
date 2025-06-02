@@ -1,6 +1,6 @@
 import * as Path from "path";
 
-import { test, asyncMonad } from "arrange-act-assert";
+import { test, monad } from "arrange-act-assert";
 
 import { spawnTestFile } from "./spawnTestFile";
 
@@ -12,7 +12,7 @@ test.describe("spawnTestFile", (test) => {
     });
     test("Should fail with exit code", {
         ACT() {
-            return asyncMonad(() => spawnTestFile(Path.join(__dirname, "not_test_file.js"), {prefix:[]}, () => {}));
+            return monad(() => spawnTestFile(Path.join(__dirname, "not_test_file.js"), {prefix:[]}, () => {}));
         },
         ASSERT(res) {
             res.should.error({
@@ -22,7 +22,7 @@ test.describe("spawnTestFile", (test) => {
     });
     test("Should spawn with a prefix", {
         ACT() {
-            return asyncMonad(() => spawnTestFile(Path.join(__dirname, "not_test_file.js"), {prefix:["--aaa-prefix-test"]}, () => {}));
+            return monad(() => spawnTestFile(Path.join(__dirname, "not_test_file.js"), {prefix:["--aaa-prefix-test"]}, () => {}));
         },
         ASSERT(res) {
             res.should.error({

@@ -6,7 +6,7 @@ import * as Assert from "assert";
 import * as Crypto from "crypto";
 
 import { functionRunner, RunMonad } from "./functionRunner";
-import { clearModuleCache, ResolvablePromise, resolvablePromise } from "../utils/utils";
+import { clearModuleCache, getTestOptions, ResolvablePromise, resolvablePromise } from "../utils/utils";
 import { Formatter, MessageType, Messages, TestInfo, TestType } from "../formatters";
 import { DefaultFormatter } from "../formatters/default";
 import { spawnTestFile, SpawnTestFileOptions } from "../spawnTestFile/spawnTestFile";
@@ -540,7 +540,7 @@ function getRoot() {
         // Not a suite in this process (for example running a test file directly)
         // So run tests and show errors if needed
         // TODO: Test run single file without suite, newRoot or anything
-        const myRoot = newRoot();
+        const myRoot = newRoot(getTestOptions());
         setImmediate(() => {
             myRoot.run().catch((e) => {
                 process.exitCode = 1111;

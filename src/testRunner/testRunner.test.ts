@@ -4,7 +4,7 @@ import * as Path from "path";
 import * as Assert from "assert";
 import { setTimeout } from "timers/promises";
 
-import test, { After, asyncMonad, TestFunction } from "arrange-act-assert";
+import test, { monad, After, TestFunction } from "arrange-act-assert";
 
 import { isMessage, newRoot, TestOptions } from "./testRunner";
 import { MessageType, MessageFileStart, MessageFileEnd, MessageAdded, MessageStart, MessageEnd, Messages, TestType } from "../formatters";
@@ -182,7 +182,7 @@ test.describe("testRunner", (test) => {
                 return resolvedTest;
             },
             async ACT(resolvedTest) {
-                return await asyncMonad(() => resolvedTest.test("test", {
+                return await monad(() => resolvedTest.test("test", {
                     ARRANGE() {
                         return 0;
                     },
@@ -567,7 +567,7 @@ test.describe("testRunner", (test) => {
                     valid: 0,
                     invalid: 0
                 };
-                await asyncMonad(() => myTest.test("test", {
+                await monad(() => myTest.test("test", {
                     ARRANGE(after) {
                         after(null, () => res.valid++);
                         throw "ok";
@@ -597,7 +597,7 @@ test.describe("testRunner", (test) => {
                     valid: 0,
                     invalid: 0
                 };
-                await asyncMonad(() => myTest.test("test", {
+                await monad(() => myTest.test("test", {
                     ARRANGE(after) {
                         after(null, () => res.valid++);
                     },
@@ -627,7 +627,7 @@ test.describe("testRunner", (test) => {
                     valid: 0,
                     invalid: 0
                 };
-                await asyncMonad(() => myTest.test("test", {
+                await monad(() => myTest.test("test", {
                     ARRANGE(after) {
                         after(null, () => res.valid++);
                     },
@@ -657,7 +657,7 @@ test.describe("testRunner", (test) => {
                     valid: 0,
                     invalid: 0
                 };
-                await asyncMonad(() => myTest.test("test", {
+                await monad(() => myTest.test("test", {
                     ARRANGE(after) {
                         after(null, () => {
                             throw "ok";
@@ -688,7 +688,7 @@ test.describe("testRunner", (test) => {
                     valid: 0,
                     invalid: 0
                 };
-                await asyncMonad(() => myTest.test("test", {
+                await monad(() => myTest.test("test", {
                     ARRANGE(after) {
                         after(null, () => res.valid++);
                     },
@@ -719,7 +719,7 @@ test.describe("testRunner", (test) => {
                     valid: 0,
                     invalid: 0
                 };
-                await asyncMonad(() => myTest.test("test", {
+                await monad(() => myTest.test("test", {
                     ARRANGE(after) {
                         after(null, () => res.valid++);
                     },
@@ -1199,7 +1199,7 @@ test.describe("testRunner", (test) => {
                     return { myTest, snapshotsFolder };
                 },
                 ACT({ myTest }) {
-                    return asyncMonad(() => myTest.test("test snapshot", {
+                    return monad(() => myTest.test("test snapshot", {
                         SNAPSHOT() {
                             return { asd: 1 };
                         }
@@ -1250,7 +1250,7 @@ test.describe("testRunner", (test) => {
                     return { myTest, snapshotsFolder };
                 },
                 ACT({ myTest }) {
-                    return asyncMonad(() => myTest.test("test snapshot", {
+                    return monad(() => myTest.test("test snapshot", {
                         SNAPSHOT() {
                             return { asd: 1 };
                         }
@@ -1281,7 +1281,7 @@ test.describe("testRunner", (test) => {
                     return { myTest, snapshotsFolder };
                 },
                 ACT({ myTest }) {
-                    return asyncMonad(() => myTest.test("test snapshot", {
+                    return monad(() => myTest.test("test snapshot", {
                         SNAPSHOT() {
                             return { asd: 1 };
                         }
@@ -1310,7 +1310,7 @@ test.describe("testRunner", (test) => {
                     return { myTest, snapshotsFolder };
                 },
                 ACT({ myTest }) {
-                    return asyncMonad(() => myTest.test("test snapshot", {
+                    return monad(() => myTest.test("test snapshot", {
                         SNAPSHOT() {
                             return { asd: 2 };
                         }
@@ -1333,7 +1333,7 @@ test.describe("testRunner", (test) => {
                     return { myTest, snapshotsFolder };
                 },
                 ACT({ myTest }) {
-                    return asyncMonad(() => myTest.test("test snapshot", {
+                    return monad(() => myTest.test("test snapshot", {
                         ACT() {
                             return { asd1: 1, asd2: 2 };
                         },
@@ -1413,7 +1413,7 @@ test.describe("testRunner", (test) => {
                     return { myTest, snapshotsFolder };
                 },
                 ACT({ myTest }) {
-                    return asyncMonad(() => myTest.test("test snapshot", {
+                    return monad(() => myTest.test("test snapshot", {
                         ACT() {
                             return { asd1: 1, asd2: 2 };
                         },
@@ -1460,7 +1460,7 @@ test.describe("testRunner", (test) => {
                     return { myTest, snapshotsFolder };
                 },
                 ACT({ myTest }) {
-                    return asyncMonad(() => myTest.test("test snapshot", {
+                    return monad(() => myTest.test("test snapshot", {
                         ACT() {
                             return { asd1: 1, asd2: 2 };
                         },
@@ -1505,7 +1505,7 @@ test.describe("testRunner", (test) => {
                     return { myTest, snapshotsFolder };
                 },
                 ACT({ myTest }) {
-                    return asyncMonad(() => myTest.test("test snapshot", {
+                    return monad(() => myTest.test("test snapshot", {
                         ACT() {
                             return { asd1: 2, asd2: 2 };
                         },
@@ -1552,7 +1552,7 @@ test.describe("testRunner", (test) => {
                     return { myTest, snapshotsFolder };
                 },
                 ACT({ myTest }) {
-                    return asyncMonad(() => myTest.test("test snapshot", {
+                    return monad(() => myTest.test("test snapshot", {
                         ACT() {
                             return { asd1: 2, asd2: 1 };
                         },
