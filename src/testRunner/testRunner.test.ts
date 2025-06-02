@@ -1186,6 +1186,10 @@ test.describe("testRunner", (test) => {
         runTest("should spawn a test file", true);
     });
     test.describe("snapshots", test => {
+        async function hasFile(path:string, file:string) {
+            const files = await Fs.promises.readdir(path, { recursive: true, withFileTypes: false });
+            return files.some(dirFile => `${file}${Path.extname(dirFile)}` === dirFile);
+        }
         async function tempFolder(after:After) {
             return after(await Fs.promises.mkdtemp(Path.join(Os.tmpdir(), "aaa-tests-")), folder => Fs.promises.rm(folder, { recursive: true, force: true }));
         }
@@ -1228,7 +1232,7 @@ test.describe("testRunner", (test) => {
                     });
                 },
                 async ASSERT(_, { snapshotsFolder }) {
-                    await Fs.promises.statfs(Path.join(snapshotsFolder, "test snapshot"));
+                    Assert.strictEqual(await hasFile(snapshotsFolder, "test snapshot"), true);
                 }
             });
             test("should ask to review an existent snapshot", {
@@ -1379,10 +1383,10 @@ test.describe("testRunner", (test) => {
                 },
                 ASSERTS: {
                     async "should create asd1 snapshot"(_, { snapshotsFolder }) {
-                        await Fs.promises.statfs(Path.join(snapshotsFolder, "test snapshot", "asd1"));
+                        Assert.strictEqual(await hasFile(snapshotsFolder, Path.join("test snapshot", "asd1")), true);
                     },
                     async "should create asd2 snapshot"(_, { snapshotsFolder }) {
-                        await Fs.promises.statfs(Path.join(snapshotsFolder, "test snapshot", "asd2"));
+                        Assert.strictEqual(await hasFile(snapshotsFolder, Path.join("test snapshot", "asd2")), true);
                     }
                 }
             });

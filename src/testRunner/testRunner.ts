@@ -201,12 +201,10 @@ class Test<ARR = any, ACT = any, ASS = any> {
         }
     }
     private async _checkSnapshot(testData:unknown, description?:string) {
-        const pathNames = [...this._options.descriptionPath, description || ""].map(name => name.replace(VALID_NAME_REGEX, "_"));
-        let file = Path.join(this._options.snapshotsFolder, ...pathNames);
-        if (file.length > 255) {
-            // Truncate long filenames and hash them to always be the same without collision
-            file = `${file.substring(0, 238)}.${Crypto.createHash("shake128").update(Path.join(...pathNames)).digest("hex").substring(0, 16)}`; // 238 + dot + 16 = 255
-        }
+        const path = [...this._options.descriptionPath, description || ""];
+        const cleanPath = path.map(name => name.replace(VALID_NAME_REGEX, "_"));
+        const hash = Crypto.createHash("shake128", { outputLength: 4 }).update(path.join("·")).digest("hex");
+        const file = `${Path.join(this._options.snapshotsFolder, ...cleanPath).substring(0, 246)}.${hash}`; // Maximum 255 characters (246 + dot + 4 hex bytes (8))
         if (this._options.reviewSnapshots) {
             throw new Error(`Review snapshot: ${file}\nValue: ${Util.inspect(testData, false, Infinity, false)}`);
         }
