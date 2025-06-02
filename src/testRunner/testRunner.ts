@@ -220,12 +220,76 @@ class Test<ARR = any, ACT = any, ASS = any> {
             await this._context.writeFile(file, V8.serialize(testData));
         }
     }
-    private _runSnapshot<ARGS extends any[], RES>(cb:((...args:ARGS)=>RES)|null, args:[...ARGS], description?:string) {
-        return functionRunner("SNAPSHOT", cb && (async () => {
-            const result = await cb(...args);
-            await this._checkSnapshot(result, description);
-            return result;
-        }), []);
+    private async _runAssert<ARGS extends any[], RES>(cb:((...args:ARGS)=>RES)|null, args:[...ARGS], description?:string) {
+        if (cb) {
+            const id = ids++;
+            this._context.send({
+                id: id,
+                type: MessageType.ADDED,
+                test: {
+                    parentId: this.id,
+                    description: description || "",
+                    type: TestType.ASSERT
+                }
+            });
+            this._context.send({
+                id: id,
+                type: MessageType.START
+            });
+            const assertResult = await functionRunner("ASSERT", cb, args);
+            if (assertResult.run) {
+                if (!assertResult.ok) {
+                    this._context.send({
+                        id: id,
+                        type: MessageType.END,
+                        error: Util.format(assertResult.error)
+                    });
+                    throw assertResult.error;
+                }
+                this._context.send({
+                    id: id,
+                    type: MessageType.END
+                });
+            }
+        }
+        return functionRunner("ASSERT", null, []); // Always return a RunMonad
+    }
+    private async _runSnapshot<ARGS extends any[], RES>(cb:((...args:ARGS)=>RES)|null, args:[...ARGS], description?:string):Promise<RunMonad<Awaited<RES>>> {
+        if (cb) {
+            const id = ids++;
+            this._context.send({
+                id: id,
+                type: MessageType.ADDED,
+                test: {
+                    parentId: this.id,
+                    description: description || "",
+                    type: TestType.ASSERT
+                }
+            });
+            this._context.send({
+                id: id,
+                type: MessageType.START
+            });
+            const res = await functionRunner("SNAPSHOT", cb && (async () => {
+                const result = await cb(...args);
+                await this._checkSnapshot(result, description);
+                return result;
+            }), []);
+            if (res.run && !res.ok) {
+                this._context.send({
+                    id: id,
+                    type: MessageType.END,
+                    error: Util.format(res.error)
+                });
+            } else {
+                this._context.send({
+                    id: id,
+                    type: MessageType.END
+                });
+            }
+            return res;
+        }
+        return functionRunner("SNAPSHOT", null, []); // Always return a RunMonad
     }
     private async _runTest(test:TestInterface<ARR, ACT, ASS>) {
         try {
@@ -242,7 +306,6 @@ class Test<ARR = any, ACT = any, ASS = any> {
                 }
                 actResultData = actResult.data;
             } else {
-                // TODO: Test SNAPSHOT
                 snapshotResult = await this._runSnapshot("SNAPSHOT" in test && test.SNAPSHOT || null, [arrangeResult.data, this._addAfter]);
                 if (snapshotResult.run && !snapshotResult.ok) {
                     throw snapshotResult.error;
@@ -250,103 +313,26 @@ class Test<ARR = any, ACT = any, ASS = any> {
                 actResultData = snapshotResult.data;
             }
             if (test.ASSERT) {
-                const id = ids++;
-                this._context.send({
-                    id: id,
-                    type: MessageType.ADDED,
-                    test: {
-                        parentId: this.id,
-                        description: "",
-                        type: TestType.ASSERT
-                    }
-                });
-                this._context.send({
-                    id: id,
-                    type: MessageType.START
-                });
-                const assertResult = await functionRunner("ASSERT", test.ASSERT, [actResultData, arrangeResult.data, this._addAfter]);
-                if (assertResult.run) {
-                    if (!assertResult.ok) {
-                        this._context.send({
-                            id: id,
-                            type: MessageType.END,
-                            error: Util.format(assertResult.error)
-                        });
-                        throw assertResult.error;
-                    }
-                    this._context.send({
-                        id: id,
-                        type: MessageType.END
-                    });
+                const assertResult = await this._runAssert(test.ASSERT, [actResultData, arrangeResult.data, this._addAfter]);
+                if (assertResult.run && !assertResult.ok) {
+                    throw assertResult.error;
                 }
             }
             let assertError = null;
-            for (const [description, cb] of this._getAsserts()) {
-                // TODO: Test mutiple ASSERTS
-                const id = ids++;
-                this._context.send({
-                    id: id,
-                    type: MessageType.ADDED,
-                    test: {
-                        parentId: this.id,
-                        description: description,
-                        type: TestType.ASSERT
-                    }
-                });
-                this._context.send({
-                    id: id,
-                    type: MessageType.START
-                });
-                const assertResult = await functionRunner("ASSERT", cb, [actResultData, arrangeResult.data, this._addAfter]);
-                if (assertResult.run && !assertResult.ok) {
-                    this._context.send({
-                        id: id,
-                        type: MessageType.END,
-                        error: Util.format(assertResult.error)
-                    });
-                    if (!assertError) {
-                        assertError = assertResult;
-                    }
-                } else {
-                    this._context.send({
-                        id: id,
-                        type: MessageType.END
-                    });
-                }
-            }
             if (!snapshotResult || !snapshotResult.run) {
                 for (const [description, cb] of this._getSnapshots()) {
                     // TODO: Test multiple SNAPSHOTS
-                    const id = ids++;
-                    this._context.send({
-                        id: id,
-                        type: MessageType.ADDED,
-                        test: {
-                            parentId: this.id,
-                            description: description,
-                            type: TestType.ASSERT
-                        }
-                    });
-                    this._context.send({
-                        id: id,
-                        type: MessageType.START
-                    });
                     const snapshotResult = await this._runSnapshot(cb, [actResultData, arrangeResult.data, this._addAfter], description);
-                    if (snapshotResult.run && !snapshotResult.ok) {
-                        this._context.send({
-                            id: id,
-                            type: MessageType.END,
-                            error: Util.format(snapshotResult.error)
-                        });
-                        if (!assertError) {
-                            assertError = snapshotResult;
-                        }
-                    } else {
-                        this._context.send({
-                            id: id,
-                            type: MessageType.END
-                        });
+                    if (snapshotResult.run && !snapshotResult.ok && !assertError) {
+                        assertError = snapshotResult;
                     }
+                }
+            }
+            for (const [description, cb] of this._getAsserts()) {
+                // TODO: Test mutiple ASSERTS
+                const assertResult = await this._runAssert(cb, [actResultData, arrangeResult.data, this._addAfter], description);
+                if (assertResult.run && !assertResult.ok && !assertError) {
+                    assertError = assertResult;
                 }
             }
             if (assertError) {

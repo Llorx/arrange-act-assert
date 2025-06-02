@@ -203,6 +203,10 @@ export class DefaultFormatter implements Formatter {
             // TODO: Test no tests run
             throw new Error("No test run");
         }
+        if (summary.assert.count === 0) {
+            // TODO: Test no asserts run
+            throw new Error("No asserts run");
+        }
         return summary;
     }
     format(fileId:string, msg:Messages):void {

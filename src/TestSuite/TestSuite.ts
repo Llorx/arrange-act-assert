@@ -8,14 +8,6 @@ import { Formatter } from "../formatters";
 import { DefaultFormatter } from "../formatters/default";
 import { ReadDirOptions } from "../readDir/readDir";
 
-
-
-
-
-        // El usuario debe ejecutar el comando --confirm-snapshots para confirmar la revisión
-        // Habrá un comando de --review-snapshots para revisarlos
-
-
 export type TestSuiteOptions = {
     parallel:number;
     folder:string;
