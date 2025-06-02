@@ -35,7 +35,7 @@
   "homepage": "https://github.com/Llorx/arrange-act-assert#readme",
   "devDependencies": {
     "@types/node": "^22.7.8",
-    "arrange-act-assert": "^2.0.0",
+    "arrange-act-assert": "^2.1.2",
     "typescript": "^5.6.3"
   }
 }
