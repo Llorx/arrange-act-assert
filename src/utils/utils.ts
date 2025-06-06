@@ -142,13 +142,17 @@ export function getTestOptions(argv = process.argv) {
         }
         options.snapshotsFolder = snapshotsFolder[0];
     }
-    const confirmSnapshots = args.get("confirm-snapshots");
+    const confirmSnapshots = args.get("snapshots-confirm");
     if (confirmSnapshots) {
         options.confirmSnapshots = true;
     }
-    const reviewSnapshots = args.get("review-snapshots");
+    const reviewSnapshots = args.get("snapshots-review");
     if (reviewSnapshots) {
         options.reviewSnapshots = true;
+    }
+    const overwriteSnapshots = args.get("snapshots-overwrite");
+    if (overwriteSnapshots) {
+        options.overwriteSnapshots = true;
     }
     return options;
 }

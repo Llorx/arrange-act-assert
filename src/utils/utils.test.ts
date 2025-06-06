@@ -159,7 +159,7 @@ test.describe("utils", (test) => {
     test.describe("getTestOptions", (test) => {
         test("should process args", {
             SNAPSHOT() {
-                return getTestOptions(["--snapshots-folder", "test", "--confirm-snapshots", "--review-snapshots"]);
+                return getTestOptions(["--snapshots-folder", "test", "--snapshots-confirm", "--snapshots-review"]);
             }
         });
         test("should error on empty snapshots-folder argument", {

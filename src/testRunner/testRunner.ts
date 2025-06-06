@@ -59,6 +59,7 @@ export type TestOptions = {
     snapshotsFolder?:string;
     confirmSnapshots?:boolean;
     reviewSnapshots?:boolean;
+    overwriteSnapshots?:boolean;
 };
 type FullTestOptions = {
     description:string;
@@ -74,7 +75,7 @@ const VALID_NAME_REGEX = /[^\w\-. ]/g;
 let ids = 0;
 class Test<ARR = any, ACT = any, ASS = any> {
     private _promise = resolvablePromise();
-    private _prendingPromise:ResolvablePromise|null = null;
+    private _pendingPromise:ResolvablePromise|null = null;
     private _tests:Test[] = [];
     private _pending:Test[] = [];
     private _finished = false;
@@ -166,14 +167,14 @@ class Test<ARR = any, ACT = any, ASS = any> {
                     type: test._isDescribe() ? TestType.DESCRIBE : TestType.TEST
                 }
             });
-            if (!this._prendingPromise) {
+            if (!this._pendingPromise) {
                 this._runPending();
             }
         }
         return test._promise;
     }
     private async _runPending() {
-        this._prendingPromise = resolvablePromise();
+        this._pendingPromise = resolvablePromise();
         while (true) {
             const test = this._pending.shift();
             if (!test) {
@@ -185,13 +186,13 @@ class Test<ARR = any, ACT = any, ASS = any> {
                 this._testErrors.push({ test, error });
             }
         }
-        this._prendingPromise.resolve();
-        this._prendingPromise = null;
+        this._pendingPromise.resolve();
+        this._pendingPromise = null;
     }
     private async _awaitSubtests() {
         await Promise.allSettled(this._tests.map(test => test._promise));
-        if (this._prendingPromise) {
-            await this._prendingPromise;
+        if (this._pendingPromise) {
+            await this._pendingPromise;
         }
     }
     private async _runDescribe(cb?:DescribeCallback) {
@@ -210,11 +211,11 @@ class Test<ARR = any, ACT = any, ASS = any> {
         }
         let fileData;
         try {
-            fileData = V8.deserialize(await this._context.readFile(file)) as unknown;
+            fileData = !this._options.overwriteSnapshots && await this._context.readFile(file);
         } catch (e) {}
         if (fileData) {
-            Assert.deepStrictEqual(testData, fileData);
-        } else if (!this._options.confirmSnapshots) {
+            Assert.deepStrictEqual(testData, V8.deserialize(fileData));
+        } else if (!this._options.confirmSnapshots && !this._options.overwriteSnapshots) {
             throw new Error(`Confirm snapshot: ${file}\nValue: ${Util.inspect(testData, false, Infinity, false)}`);
         } else {
             await this._context.writeFile(file, V8.serialize(testData));
@@ -397,6 +398,7 @@ class Root extends Test {
             snapshotsFolder: Path.join(process.cwd(), "snapshots"),
             confirmSnapshots: false,
             reviewSnapshots: false,
+            overwriteSnapshots: false,
             ...options
         });
     }
