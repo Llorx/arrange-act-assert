@@ -1218,6 +1218,16 @@ test.describe("testRunner", (test) => {
             test("should create a snapshot", {
                 async ARRANGE(after) {
                     const snapshotsFolder = await tempFolder(after);
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder
+                    });
+                    try {
+                        await myTest.test("test snapshot", {
+                            SNAPSHOT() {
+                                return { asd: 1 };
+                            }
+                        });
+                    } catch (e) {}
                     return { snapshotsFolder };
                 },
                 async ACT({ snapshotsFolder }, after) {
@@ -1235,14 +1245,116 @@ test.describe("testRunner", (test) => {
                     Assert.strictEqual(await hasFile(snapshotsFolder, "test snapshot"), true);
                 }
             });
+            test("should validate created snapshot", {
+                async ARRANGE(after) {
+                    const snapshotsFolder = await tempFolder(after);
+                    const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder
+                    });
+                    try {
+                        await myTest1.test("test snapshot", {
+                            SNAPSHOT() {
+                                return { asd: 1 };
+                            }
+                        });
+                    } catch (e) {}
+                    const myTest2 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    await myTest2.test("test snapshot", {
+                        SNAPSHOT() {
+                            return { asd: 1 };
+                        }
+                    });
+                    return { snapshotsFolder };
+                },
+                async ACT({ snapshotsFolder }, after) {
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder
+                    });
+                    return monad(() => myTest.test("test snapshot", {
+                        SNAPSHOT() {
+                            return { asd: 1 };
+                        }
+                    }));
+                },
+                async ASSERT(res) {
+                    res.should.ok();
+                }
+            });
+            test("should error if confirming non-existent snapshot", {
+                async ARRANGE(after) {
+                    const snapshotsFolder = await tempFolder(after);
+                    return { snapshotsFolder };
+                },
+                async ACT({ snapshotsFolder }, after) {
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    return monad(() => myTest.test("test snapshot", {
+                        SNAPSHOT() {
+                            return { asd: 1 };
+                        }
+                    }));
+                },
+                async ASSERT(res) {
+                    res.should.error({
+                        message: /No snapshot file found/
+                    });
+                }
+            });
+            test("should error if confirming not equal snapshot", {
+                async ARRANGE(after) {
+                    const snapshotsFolder = await tempFolder(after);
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder
+                    });
+                    try {
+                        await myTest.test("test snapshot", {
+                            SNAPSHOT() {
+                                return { asd: 1 };
+                            }
+                        });
+                    } catch (e) {}
+                    return { snapshotsFolder };
+                },
+                async ACT({ snapshotsFolder }, after) {
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder,
+                        confirmSnapshots: true
+                    });
+                    return monad(() => myTest.test("test snapshot", {
+                        SNAPSHOT() {
+                            return { asd: 2 };
+                        }
+                    }));
+                },
+                async ASSERT(res) {
+                    res.should.error({
+                        message: /Expected values to be strictly deep-equal/
+                    });
+                }
+            });
             test("should ask to review an existent snapshot", {
                 async ARRANGE(after) {
                     const snapshotsFolder = await tempFolder(after);
                     const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder
+                    });
+                    try {
+                        await myTest1.test("test snapshot", {
+                            SNAPSHOT() {
+                                return { asd: 1 };
+                            }
+                        });
+                    } catch (e) {}
+                    const myTest2 = afterNewRoot(after, {
                         snapshotsFolder: snapshotsFolder,
                         confirmSnapshots: true
                     });
-                    await myTest1.test("test snapshot", {
+                    await myTest2.test("test snapshot", {
                         SNAPSHOT() {
                             return { asd: 1 };
                         }
@@ -1266,42 +1378,24 @@ test.describe("testRunner", (test) => {
                     });
                 }
             });
-            test("should test a valid snapshot", {
-                async ARRANGE(after) {
-                    const snapshotsFolder = await tempFolder(after);
-                    const myTest1 = afterNewRoot(after, {
-                        snapshotsFolder: snapshotsFolder,
-                        confirmSnapshots: true
-                    });
-                    await myTest1.test("test snapshot", {
-                        SNAPSHOT() {
-                            return { asd: 1 };
-                        }
-                    });
-                    return { snapshotsFolder };
-                },
-                async ACT({ snapshotsFolder }, after) {
-                    const myTest = afterNewRoot(after, {
-                        snapshotsFolder: snapshotsFolder
-                    });
-                    return monad(() => myTest.test("test snapshot", {
-                        SNAPSHOT() {
-                            return { asd: 1 };
-                        }
-                    }));
-                },
-                ASSERT(res) {
-                    res.should.ok();
-                }
-            });
             test("should test an invalid snapshot", {
                 async ARRANGE(after) {
                     const snapshotsFolder = await tempFolder(after);
                     const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder
+                    });
+                    try {
+                        await myTest1.test("test snapshot", {
+                            SNAPSHOT() {
+                                return { asd: 1 };
+                            }
+                        });
+                    } catch (e) {}
+                    const myTest2 = afterNewRoot(after, {
                         snapshotsFolder: snapshotsFolder,
                         confirmSnapshots: true
                     });
-                    await myTest1.test("test snapshot", {
+                    await myTest2.test("test snapshot", {
                         SNAPSHOT() {
                             return { asd: 1 };
                         }
@@ -1328,14 +1422,15 @@ test.describe("testRunner", (test) => {
                 async ARRANGE(after) {
                     const snapshotsFolder = await tempFolder(after);
                     const myTest1 = afterNewRoot(after, {
-                        snapshotsFolder: snapshotsFolder,
-                        confirmSnapshots: true
+                        snapshotsFolder: snapshotsFolder
                     });
-                    await myTest1.test("test snapshot", {
-                        SNAPSHOT() {
-                            return { asd: 1 };
-                        }
-                    });
+                    try {
+                        await myTest1.test("test snapshot", {
+                            SNAPSHOT() {
+                                return { asd: 1 };
+                            }
+                        });
+                    } catch (e) {}
                     return { snapshotsFolder };
                 },
                 async ACT({ snapshotsFolder }, after) {
@@ -1359,10 +1454,20 @@ test.describe("testRunner", (test) => {
                 async ARRANGE(after) {
                     const snapshotsFolder = await tempFolder(after);
                     const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder
+                    });
+                    try {
+                        await myTest1.test("test snapshot", {
+                            SNAPSHOT() {
+                                return { asd: 1 };
+                            }
+                        });
+                    } catch (e) {}
+                    const myTest2 = afterNewRoot(after, {
                         snapshotsFolder: snapshotsFolder,
                         confirmSnapshots: true
                     });
-                    await myTest1.test("test snapshot", {
+                    await myTest2.test("test snapshot", {
                         SNAPSHOT() {
                             return { asd: 1 };
                         }
@@ -1381,7 +1486,9 @@ test.describe("testRunner", (test) => {
                     }));
                 },
                 ASSERT(res) {
-                    res.should.ok();
+                    res.should.error({
+                        message: /Confirm snapshot:/
+                    });
                 }
             });
         });
@@ -1418,6 +1525,24 @@ test.describe("testRunner", (test) => {
             test("should create snapshots", {
                 async ARRANGE(after) {
                     const snapshotsFolder = await tempFolder(after);
+                    const myTest = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder
+                    });
+                    try {
+                        await myTest.test("test snapshot", {
+                            ACT() {
+                                return { asd1: 1, asd2: 2 };
+                            },
+                            SNAPSHOTS: {
+                                "asd1"(res) {
+                                    return res.asd1;
+                                },
+                                "asd2"(res) {
+                                    return res.asd2;
+                                }
+                            }
+                        });
+                    } catch (e) {}
                     return { snapshotsFolder };
                 },
                 async ACT({ snapshotsFolder }, after) {
@@ -1452,10 +1577,28 @@ test.describe("testRunner", (test) => {
                 async ARRANGE(after) {
                     const snapshotsFolder = await tempFolder(after);
                     const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder
+                    });
+                    try {
+                        await myTest1.test("test snapshot", {
+                            ACT() {
+                                return { asd1: 1, asd2: 2 };
+                            },
+                            SNAPSHOTS: {
+                                "asd1"(res) {
+                                    return res.asd1;
+                                },
+                                "asd2"(res) {
+                                    return res.asd2;
+                                }
+                            }
+                        });
+                    } catch (e) {}
+                    const myTest2 = afterNewRoot(after, {
                         snapshotsFolder: snapshotsFolder,
                         confirmSnapshots: true
                     });
-                    await myTest1.test("test snapshot", {
+                    await myTest2.test("test snapshot", {
                         ACT() {
                             return { asd1: 1, asd2: 2 };
                         },
@@ -1499,10 +1642,28 @@ test.describe("testRunner", (test) => {
                 async ARRANGE(after) {
                     const snapshotsFolder = await tempFolder(after);
                     const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder
+                    });
+                    try {
+                        await myTest1.test("test snapshot", {
+                            ACT() {
+                                return { asd1: 1, asd2: 2 };
+                            },
+                            SNAPSHOTS: {
+                                "asd1"(res) {
+                                    return res.asd1;
+                                },
+                                "asd2"(res) {
+                                    return res.asd2;
+                                }
+                            }
+                        });
+                    } catch (e) {}
+                    const myTest2 = afterNewRoot(after, {
                         snapshotsFolder: snapshotsFolder,
                         confirmSnapshots: true
                     });
-                    await myTest1.test("test snapshot", {
+                    await myTest2.test("test snapshot", {
                         ACT() {
                             return { asd1: 1, asd2: 2 };
                         },
@@ -1543,10 +1704,28 @@ test.describe("testRunner", (test) => {
                 async ARRANGE(after) {
                     const snapshotsFolder = await tempFolder(after);
                     const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder
+                    });
+                    try {
+                        await myTest1.test("test snapshot", {
+                            ACT() {
+                                return { asd1: 1, asd2: 2 };
+                            },
+                            SNAPSHOTS: {
+                                "asd1"(res) {
+                                    return res.asd1;
+                                },
+                                "asd2"(res) {
+                                    return res.asd2;
+                                }
+                            }
+                        });
+                    } catch (e) {}
+                    const myTest2 = afterNewRoot(after, {
                         snapshotsFolder: snapshotsFolder,
                         confirmSnapshots: true
                     });
-                    await myTest1.test("test snapshot", {
+                    await myTest2.test("test snapshot", {
                         ACT() {
                             return { asd1: 1, asd2: 2 };
                         },
@@ -1589,10 +1768,28 @@ test.describe("testRunner", (test) => {
                 async ARRANGE(after) {
                     const snapshotsFolder = await tempFolder(after);
                     const myTest1 = afterNewRoot(after, {
+                        snapshotsFolder: snapshotsFolder
+                    });
+                    try {
+                        await myTest1.test("test snapshot", {
+                            ACT() {
+                                return { asd1: 1, asd2: 2 };
+                            },
+                            SNAPSHOTS: {
+                                "asd1"(res) {
+                                    return res.asd1;
+                                },
+                                "asd2"(res) {
+                                    return res.asd2;
+                                }
+                            }
+                        });
+                    } catch (e) {}
+                    const myTest2 = afterNewRoot(after, {
                         snapshotsFolder: snapshotsFolder,
                         confirmSnapshots: true
                     });
-                    await myTest1.test("test snapshot", {
+                    await myTest2.test("test snapshot", {
                         ACT() {
                             return { asd1: 1, asd2: 2 };
                         },
@@ -1613,7 +1810,7 @@ test.describe("testRunner", (test) => {
                     });
                     return monad(() => myTest.test("test snapshot", {
                         ACT() {
-                            return { asd1: 2, asd2: 1 };
+                            return { asd1: 1, asd2: 1 };
                         },
                         SNAPSHOTS: {
                             "asd1"(res) {
@@ -1627,7 +1824,7 @@ test.describe("testRunner", (test) => {
                 },
                 ASSERT(res) {
                     res.should.error({
-                        message: /Expected values to be strictly deep-equal(.|\r|\n)*2 !== 1/
+                        message: /Expected values to be strictly deep-equal(.|\r|\n)*1 !== 2/
                     });
                 }
             });

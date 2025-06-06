@@ -70,6 +70,10 @@ type TestContext = {
     readFile(path:string):Promise<Buffer>;
     writeFile(path:string, data:Buffer):Promise<void>;
 };
+type Snapshot = {
+    validated:boolean;
+    data:unknown;
+};
 const VALID_NAME_REGEX = /[^\w\-. ]/g;
 
 let ids = 0;
@@ -214,11 +218,38 @@ class Test<ARR = any, ACT = any, ASS = any> {
             fileData = !this._options.overwriteSnapshots && await this._context.readFile(file);
         } catch (e) {}
         if (fileData) {
-            Assert.deepStrictEqual(testData, V8.deserialize(fileData));
-        } else if (!this._options.confirmSnapshots && !this._options.overwriteSnapshots) {
+            const snapshot = V8.deserialize(fileData) as Snapshot;
+            if (snapshot.validated && !this._options.overwriteSnapshots) {
+                Assert.deepStrictEqual(testData, snapshot.data);
+            } else if (this._options.confirmSnapshots) {
+                Assert.deepStrictEqual(testData, snapshot.data);
+                snapshot.validated = true;
+                await this._context.writeFile(file, V8.serialize(snapshot));
+            } else {
+                // If object is validated or is not equal, rewrite the file
+                if (snapshot.validated) {
+                    snapshot.validated = false;
+                    snapshot.data = testData;
+                    await this._context.writeFile(file, V8.serialize(snapshot));
+                } else {
+                    try {
+                        Assert.deepStrictEqual(testData, snapshot.data);
+                    } catch (e) {
+                        snapshot.data = testData;
+                        await this._context.writeFile(file, V8.serialize(snapshot));
+                    }
+                }
+                throw new Error(`Confirm snapshot: ${file}\nValue: ${Util.inspect(testData, false, Infinity, false)}`);
+            }
+        } else if (!this._options.confirmSnapshots) {
+            const snapshot:Snapshot = {
+                validated: false,
+                data: testData
+            };
+            await this._context.writeFile(file, V8.serialize(snapshot));
             throw new Error(`Confirm snapshot: ${file}\nValue: ${Util.inspect(testData, false, Infinity, false)}`);
         } else {
-            await this._context.writeFile(file, V8.serialize(testData));
+            throw new Error("No snapshot file found. First run without confirmation to validate the snapshots");
         }
     }
     private async _runAssert<ARGS extends any[], RES>(cb:((...args:ARGS)=>RES)|null, args:[...ARGS], description?:string) {

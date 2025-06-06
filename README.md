@@ -255,8 +255,9 @@ The `aaa` cli command accepts these options:
 - `--spawn-args-prefix PREFIX`: It will launch the test files with this prefix in the arguments. You can set multiple prefixes by setting this option multiple times.
 - `--clear-module-cache`: When you run test files with `parallel` set to `0` (same process), this flag will delete the module cache so when the TestSuite requires a test file, NodeJS will re-require and re-evaluate the file and its dependencies instead of returning the cache, just in case that you need everything clean.
 - `--snapshots-folder`: Folder to place the snapshot files. Defaults to `./snapshots`. More info in the **Snapshots** section.
-- `--confirm-snapshots`: Confirm that the new snapshots that do not exist in the snapshots-folder are valid. More info in the **Snapshots** section.
-- `--review-snapshots`: Show all the snapshot outputs to check their values.
+- `--snapshots-confirm`: Confirm that the new snapshots created in the snapshots-folder are valid. More info in the **Snapshots** section.
+- `--snapshots-review`: Show all the snapshot outputs to check their values. More info in the **Snapshots** section.
+- `--snapshots-overwrite`: Regenerate all snapshot files with new ones. More info in the **Snapshots** section.
 
 Alternatively, you can import the `TestSuite` and run your tests programatically:
 ```typescript
@@ -293,6 +294,7 @@ type TestSuiteOptions = {
     snapshotsFolder?:string; // Folder to place the snapshots. Defaults to "./snapshots"
     confirmSnapshots?:boolean; // To confirm the new snapshots, as stated in the "Snapshots" section
     reviewSnapshots?:boolean; // To review all the snapshots, as stated in the "Snapshots" section
+    overwriteSnapshots?:boolean; // To regenerate all the snapshots, as stated in the "Snapshots" section
 };
 
 // The result
@@ -346,11 +348,11 @@ It will return a `Monad` object with the methods `should.ok(VALUE)`, `should.err
 # Snapshots
 There's a snapshots system to easily assert method outputs that should return the same values between tests.
 
-To ensure that snapshots are validated, a confirmation process is implemented: It will first show the snapshot output for you to review manually. You must check that the outputs are valid and then the run the tests again with the `--confirm-snapshots` (cli) or `confirmSnapshots: true` (programmatically) option so the new snapshots are saved into a file.
+To ensure that snapshots are validated, a confirmation process is implemented: It will first save unvalidated snapshots and show the snapshot output for you to review manually. You must check that the outputs are valid and then the run the tests again with the `--snapshots-confirm` (cli) or `confirmSnapshots: true` (programmatically) option so the new snapshots are validated. Unvalidated snapshots are treated as non-existant for a normal run.
 
-The snapshots are binary files serialized with the [V8.serialize()](https://nodejs.org/api/v8.html#v8serializevalue) method, so all types supported by this serialization method are valid. If you want to review them again, you must use the `--review-snapshots` (cli) or `reviewSnapshots: true` (programmatically) option.
+The snapshots are binary files serialized with the [V8.serialize()](https://nodejs.org/api/v8.html#v8serializevalue) method, so all types supported by this serialization method are valid. If you want to review them again, you must use the `--snapshots-review` (cli) or `reviewSnapshots: true` (programmatically) option.
 
-If you want to regenerate a snapshot, you must delete the snapshot file from the filesystem manually and run again the snapshot confirmation process.
+If you want to regenerate a snapshot, you must delete the snapshot file from the filesystem manually and run again the snapshot confirmation process. You can also use the `--snapshots-overwrite` (cli) or `overwriteSnapshots: true` (programmatically) option. It will overwrite all the ran tests with unvalidated snapshots that must be confirmed again.
 
 Snapshots are asserted using the [deepStrictEqual()](https://nodejs.org/api/assert.html#assertdeepstrictequalactual-expected-message) method.
 
