@@ -11,6 +11,15 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
+            "runtimeArgs": ["--enable-source-maps", "--expose-internals"],
+            "type": "node"
+        },
+        {
+            "name": "Launch Program internals",
+            "program": "${file}",
+            "request": "launch",
+            "skipFiles": [],
+            "runtimeArgs": ["--enable-source-maps", "--expose-internals"],
             "type": "node"
         }
     ]

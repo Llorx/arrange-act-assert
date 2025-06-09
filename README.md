@@ -251,13 +251,16 @@ The `aaa` cli command accepts these options:
 - `--folder STRING`: The path of the folder where the test files are located. Defaults to the current folder.
 - `--parallel NUMBER`: This tool runs test files in subprocesses (one new node process per test file). It will run these amounts of files in parallel. Set to `0` to run all the test files in the very same process, although is not recommended. Defaults to the amount of cores that the running computer has.
 - `--include-files REGEX`: The regex to apply to each full file path found to consider it a test file to run. You can set multiple regexes by setting this option multiple times. Defaults to `(\\|\/|.*(\.|-|_))(test)(\.|(\.|-|\\|\/).*.)(cjs|mjs|js)$`.
-- `--exclude-files REGEX`: The regex to apply to each full file path found to exclude it. Defaults to `\/node_modules\/`.
+- `--exclude-files REGEX`: The regex to apply to each full file path found to exclude it. Defaults to `\/node_modules\/i`.
 - `--spawn-args-prefix PREFIX`: It will launch the test files with this prefix in the arguments. You can set multiple prefixes by setting this option multiple times.
 - `--clear-module-cache`: When you run test files with `parallel` set to `0` (same process), this flag will delete the module cache so when the TestSuite requires a test file, NodeJS will re-require and re-evaluate the file and its dependencies instead of returning the cache, just in case that you need everything clean.
+- `--coverage`: Take coverage metrics.
+- `--coverage-exclude REGEX`: Regex to apply to each full file path found to exclude it. Defaults to `\/node_modules\/i`.
+- `--coverage-no-branches`: Do not show uncovered branches.
 - `--snapshots-folder`: Folder to place the snapshot files. Defaults to `./snapshots`. More info in the **Snapshots** section.
 - `--snapshots-confirm`: Confirm that the new snapshots created in the snapshots-folder are valid. More info in the **Snapshots** section.
 - `--snapshots-review`: Show all the snapshot outputs to check their values. More info in the **Snapshots** section.
-- `--snapshots-overwrite`: Regenerate all snapshot files with new ones. More info in the **Snapshots** section.
+- `--snapshots-regenerate`: Regenerate all snapshot files with new ones. More info in the **Snapshots** section.
 
 Alternatively, you can import the `TestSuite` and run your tests programatically:
 ```typescript
@@ -291,10 +294,12 @@ type TestSuiteOptions = {
     // By default it will output the results in the stdout
     // Example: `https://github.com/Llorx/arrange-act-assert/blob/main/src/formatters/default.ts` search for "DefaultFormatter implements Formatter".
     formatter:Formatter;
-    snapshotsFolder?:string; // Folder to place the snapshots. Defaults to "./snapshots"
-    confirmSnapshots?:boolean; // To confirm the new snapshots, as stated in the "Snapshots" section
-    reviewSnapshots?:boolean; // To review all the snapshots, as stated in the "Snapshots" section
-    overwriteSnapshots?:boolean; // To regenerate all the snapshots, as stated in the "Snapshots" section
+    coverage:boolean; // Take coverage metrics
+    coverageExclude:RegExp[]; // Same logic as the "--coverage-exclude" option
+    coverageNoBranches:boolean; // Same logic as the "--coverage-no-branches" option
+    snapshotsFolder:string; // Folder to place the snapshots. Defaults to "./snapshots"
+    confirmSnapshots:boolean; // To confirm the new snapshots, as stated in the "Snapshots" section
+    reviewSnapshots:boolean; // To review all the snapshots, as stated in the "Snapshots" section
 };
 
 // The result
@@ -352,7 +357,7 @@ To ensure that snapshots are validated, a confirmation process is implemented: I
 
 The snapshots are binary files serialized with the [V8.serialize()](https://nodejs.org/api/v8.html#v8serializevalue) method, so all types supported by this serialization method are valid. If you want to review them again, you must use the `--snapshots-review` (cli) or `reviewSnapshots: true` (programmatically) option.
 
-If you want to regenerate a snapshot, you must delete the snapshot file from the filesystem manually and run again the snapshot confirmation process. You can also use the `--snapshots-overwrite` (cli) or `overwriteSnapshots: true` (programmatically) option. It will overwrite all the ran tests with unvalidated snapshots that must be confirmed again.
+If you want to regenerate a snapshot, you must delete the snapshot file from the filesystem manually and run again the snapshot confirmation process. You can also use the `--snapshots-regenerate` (cli) or `regenerateSnapshots: true` (programmatically) option. It will regenerate all the ran tests with unvalidated snapshots that must be confirmed again.
 
 Snapshots are asserted using the [deepStrictEqual()](https://nodejs.org/api/assert.html#assertdeepstrictequalactual-expected-message) method.
 

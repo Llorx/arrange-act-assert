@@ -1,19 +1,32 @@
 import { spawn } from "child_process";
 import { TestOptions } from "../testRunner/testRunner";
 
+// Load EntryPoint and avoid running AAA_TEST_FILE
+const AAA_TEST_FILE = process.env.AAA_TEST_FILE;
+process.env.AAA_TEST_FILE = "";
+import * as EntryPoint from "./entryPoint";
+process.env.AAA_TEST_FILE = AAA_TEST_FILE;
+
 export type SpawnTestFileOptions = {
     prefix:string[];
 } & TestOptions;
 
 export function spawnTestFile(path:string, options:SpawnTestFileOptions, cb:(msg:unknown)=>void) {
     return new Promise<void>((resolve, reject) => {
-        const testProcess = spawn(process.execPath, [...options.prefix, path], {
-            env: {...process.env, AAA_TEST_FILE: "1", AAA_TEST_OPTIONS: JSON.stringify({
-                snapshotsFolder: options.snapshotsFolder,
-                confirmSnapshots: options.confirmSnapshots,
-                reviewSnapshots: options.reviewSnapshots
-            })},
-            stdio: ["ignore", "pipe", "pipe", "ipc"]
+        const testProcess = spawn(process.execPath, [...process.execArgv, ...options.prefix, EntryPoint.path], {
+            env: {
+                ...process.env,
+                AAA_TEST_FILE: path,
+                AAA_TEST_OPTIONS: JSON.stringify({
+                    snapshotsFolder: options.snapshotsFolder,
+                    confirmSnapshots: options.confirmSnapshots,
+                    reviewSnapshots: options.reviewSnapshots,
+                    regenerateSnapshots: options.regenerateSnapshots,
+                    coverage: options.coverage
+                })
+            },
+            stdio: ["ignore", "pipe", "pipe", "ipc"],
+            serialization: "advanced"
         });
         const out:Uint8Array[] = [];
         const err:Uint8Array[] = [];

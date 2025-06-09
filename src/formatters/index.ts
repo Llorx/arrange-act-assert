@@ -1,3 +1,4 @@
+import { CoverageEntry } from "../coverage/Coverage";
 import { Summary } from "../testRunner/testRunner";
 
 export const enum TestType {
@@ -10,7 +11,8 @@ export const enum MessageType {
     FILE_END,
     ADDED,
     START,
-    END
+    END,
+    COVERAGE
 }
 export type TestInfo = {
     parentId:number;
@@ -19,6 +21,10 @@ export type TestInfo = {
 };
 export type MessageBase = {
     id:number;
+};
+export type MessageCoverage = {
+    type:MessageType.COVERAGE;
+    coverage:CoverageEntry[];
 };
 export type MessageFileStart = {
     type:MessageType.FILE_START;
@@ -37,9 +43,15 @@ export type MessageEnd = MessageBase & {
     type:MessageType.END;
     error?:string;
 };
-export type Messages = MessageFileStart | MessageFileEnd | MessageAdded | MessageStart | MessageEnd;
+export type Messages = MessageCoverage | MessageFileStart | MessageFileEnd | MessageAdded | MessageStart | MessageEnd;
 
+export type FormatterOptions = {
+    excludeFiles:string[];
+    exclude:RegExp[];
+    branches:boolean;
+};
 export interface Formatter {
     formatSummary?(summary:Summary):void;
+    setOptions(options:FormatterOptions):void;
     format(fileId:string, msg:Messages):void;
 }

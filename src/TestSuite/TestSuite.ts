@@ -4,9 +4,10 @@ import { SpawnTestFileOptions } from "../spawnTestFile/spawnTestFile";
 import { parallelize } from "../parallelize/parallelize";
 import { MainContext } from "./MainContext";
 import { newRoot, RunTestFileOptions, Summary, TestOptions } from "../testRunner/testRunner";
-import { Formatter } from "../formatters";
+import { Formatter, MessageType } from "../formatters";
 import { DefaultFormatter } from "../formatters/default";
 import { ReadDirOptions } from "../readDir/readDir";
+import coverage from "../coverage/singleton";
 
 export type TestSuiteOptions = {
     parallel:number;
@@ -48,8 +49,17 @@ export class TestSuite {
         this._root.setFormatter(this.options.formatter);
     }
     async run():Promise<TestResult> {
+        if (this.options.coverage) {
+            await coverage.start();
+        }
         const result = await this._run();
         await this._root.end();
+        if (this.options.coverage && this.options.parallel === 0) {
+            this._root.processMessage("", {
+                type: MessageType.COVERAGE,
+                coverage: await coverage.takeCoverage()
+            });
+        }
         this.options.formatter.formatSummary && this.options.formatter.formatSummary(this._root.summary);
         for (const error of result.errors) {
             console.error(error);
@@ -63,6 +73,13 @@ export class TestSuite {
     }
     async _run() {
         const files = await this.context.getFiles(this.options.folder, this.options);
+        if (this.options.formatter) {
+            this.options.formatter.setOptions({
+                excludeFiles: files,
+                exclude: this.options.exclude,
+                branches: !this.options.coverageNoBranches
+            });
+        }
         if (this.options.parallel === 0) {
             const errors:unknown[] = [];
             for (const file of files) {

@@ -19,5 +19,5 @@ jobs:
           node-version: 22.x
           cache: 'npm'
       - run: npm ci
-      - run: npm run build-test
+      - run: npm run build-debug
       - run: npm test

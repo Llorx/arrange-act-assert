@@ -1,6 +1,6 @@
 {
   "name": "arrange-act-assert",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "The lightweight \"Act-Arrange-Assert\" oriented testing framework",
   "main": "lib/",
   "types": "lib/types",
@@ -16,10 +16,11 @@
     "provenance": true
   },
   "scripts": {
+    "postinstall": "cd precompiled-test-utils && npm install",
     "watch": "npm run clean && npx tsc -p tsconfig.json -watch",
     "build": "npm run clean && npx tsc -p tsconfig.build.json",
-    "build-debug": "npm run clean && npx tsc -p tsconfig.json",
-    "build-test": "npm run clean && npx tsc -p tsconfig.test.json",
+    "build-debug": "npm run clean && npx tsc -p tsconfig.json && npm run build-test-utils",
+    "build-test-utils": "cd precompiled-test-utils && npm run build",
     "test": "npx aaa",
     "clean": "node -e \"require('fs').rm('lib', {recursive: true}, O_o => {})\""
   },

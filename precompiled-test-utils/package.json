@@ -1,0 +1,14 @@
+{
+  "name": "precompiled-test-utils",
+  "version": "0.0.1",
+  "description": "Testing parameters",
+  "scripts": {
+    "build": "npx tsc -p tsconfig.json"
+  },
+  "author": "Llorx",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.7.8",
+    "typescript": "5.8.3"
+  }
+}

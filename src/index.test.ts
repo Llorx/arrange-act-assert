@@ -6,7 +6,7 @@ import { monad } from "./monad/monad";
 
 import * as Index from "./index";
 
-test.describe("index", () => {
+test.describe("index", test => {
     test("Should export all methods and utils", {
         ASSERTS: {
             "should export test function"() {

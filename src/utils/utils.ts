@@ -1,6 +1,7 @@
+import * as Util from "util";
 import * as Path from "path";
-import { TestOptions } from "../testRunner/testRunner";
-import { TestSuiteOptions } from "../TestSuite/TestSuite";
+import type { TestOptions } from "../testRunner/testRunner";
+import type { TestSuiteOptions } from "../TestSuite/TestSuite";
 
 export interface ResolvablePromise extends Promise<void> {
     resolve():void;
@@ -133,6 +134,14 @@ export function getTestSuiteOptions(argv = process.argv):Partial<TestSuiteOption
 export function getTestOptions(argv = process.argv) {
     const args = processArgs(argv);
     const options:Partial<TestOptions> = {};
+    const coverageExclude = args.get("coverage-exclude");
+    if (coverageExclude != null) {
+        options.coverageExclude = coverageExclude.map(filter => new RegExp(filter));
+    }
+    const coverageNoBranches = args.get("coverage-no-branches");
+    if (coverageNoBranches != null) {
+        options.coverageNoBranches = true;
+    }
     const snapshotsFolder = args.get("snapshots-folder");
     if (snapshotsFolder) {
         if (snapshotsFolder.length === 0) {
@@ -150,9 +159,74 @@ export function getTestOptions(argv = process.argv) {
     if (reviewSnapshots) {
         options.reviewSnapshots = true;
     }
-    const overwriteSnapshots = args.get("snapshots-overwrite");
-    if (overwriteSnapshots) {
-        options.overwriteSnapshots = true;
+    const regenerateSnapshots = args.get("snapshots-regenerate");
+    if (regenerateSnapshots) {
+        options.regenerateSnapshots = true;
+    }
+    const coverage = args.get("coverage");
+    if (coverage) {
+        options.coverage = true;
     }
     return options;
+}
+export function getCallSites() {
+    let callsite:string[] = [];
+    try {
+        callsite = (Util as any).getCallSites().map((callSite:Util.StacktraceObject) => callSite.scriptName); // node > 22
+    } catch (e) {
+        try {
+            callsite = Util.getCallSite().map(callSite => callSite.scriptName); // node == 22
+        } catch (e) {
+            // node < 22
+            const prepareStackTrace = Error.prepareStackTrace;
+            try {
+                Error.prepareStackTrace = (_, callSites) => callSites.map(callSite => callSite.getFileName());
+                callsite = new Error().stack as unknown as string[];
+            } finally {
+                Error.prepareStackTrace = prepareStackTrace;
+            }
+        }
+    }
+    return callsite;
+}
+export function testRegex(path:string, regex:RegExp[]) {
+    const fullPathForward = path.replace(/\\/g, "/");
+    const fullPathBackward = path.replace(/\//g, "\\");
+    for (const r of regex) {
+        if (r.test(fullPathForward) || r.test(fullPathBackward)) {
+            return true;
+        }
+    }
+    return false;
+}
+export function getCommonBasePath(files:string[]) {
+    let maxI = Infinity;
+    const splitFiles = files.map(file => {
+        const paths = file.split(Path.sep);
+        if (paths.length - 1 < maxI) {
+            maxI = paths.length - 1; // - 1 to avoid filtering the filename
+        }
+        return paths;
+    });
+    if (splitFiles.length > 0) {
+        const commonBase:string[] = [];
+        loop: for (let i = 0; i < maxI; i++) {
+            let base:string|null = null;
+            for (const file of splitFiles) {
+                if (base == null) {
+                    base = file[i]!;
+                } else if (file[i] !== base) {
+                    break loop
+                }
+            }
+            commonBase.push(base!);
+        }
+        if (commonBase.length > 0) {
+            if (commonBase[commonBase.length -1] !== "") {
+                commonBase.push("");
+            }
+            return commonBase.join(Path.sep);
+        }
+    }
+    return "";
 }

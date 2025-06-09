@@ -1,7 +1,11 @@
 import * as Util from "util";
+import * as Path from "path";
 
-import { TestInfo, Messages, MessageType, Formatter, TestType } from "."
+import { TestInfo, Messages, MessageType, Formatter, TestType, FormatterOptions } from "."
 import { Summary, SummaryResult } from "../testRunner/testRunner";
+import { CoverageEntry } from "../coverage/Coverage";
+import mergeCoverage from "../coverage/merge";
+import { getCommonBasePath } from "../utils/utils";
 
 export const enum Style {
     None = "",
@@ -165,12 +169,234 @@ function formatSummaryResult(title:string, result:SummaryResult) {
     }
     return msg;
 }
-
+type PathCoverageEntry = CoverageEntry & {
+    path:string[];
+};
+type TreeFolder = {
+    path:string[];
+    entries:TreeEntry;
+};
+type TreeEntry = {
+    files:PathCoverageEntry[];
+    folders:TreeFolder[];
+};
+function tryShrinkFolder(folder:TreeFolder) {
+    if (folder.entries.files.length === 0 && folder.entries.folders.length === 1) {
+        const subFolder = folder.entries.folders[0]!;
+        folder.path.push(...subFolder.path);
+        folder.entries = subFolder.entries;
+    }
+    return folder;
+}
+function getFolderTree(coverage:PathCoverageEntry[], parentPath:string[] = []) {
+    const tree:TreeEntry = {
+        files: [],
+        folders: []
+    };
+    let pathCheck:string|null = null;
+    let preSlice = 0;
+    let i = 0;
+    // Extract files first
+    while (i < coverage.length) {
+        const entry = coverage[i]!;
+        const isFile = entry.path.length - 1 <= parentPath.length;
+        if (isFile) {
+            tree.files.push({
+                ...entry,
+                path: entry.path.slice(parentPath.length)
+            });
+        } else {
+            preSlice = i;
+            pathCheck = entry.path[parentPath.length]!;
+            break;
+        }
+        i++;
+    }
+    // Extract folders after files
+    if (pathCheck) {
+        while (i <= coverage.length) {
+            const entry = coverage[i];
+            const isIncluded = entry && entry.path[parentPath.length] === pathCheck;
+            if (!isIncluded || i === coverage.length) {
+                const subList = coverage.slice(preSlice, i);
+                const subTree = {
+                    path: [ pathCheck ],
+                    entries: getFolderTree(subList, [...parentPath, pathCheck])
+                };
+                tryShrinkFolder(subTree);
+                tree.folders.push(subTree);
+                if (entry) {
+                    pathCheck = entry.path[parentPath.length]!;
+                    preSlice = i;
+                }
+            }
+            i++;
+        }
+    }
+    return tree;
+}
+function groupCoverages(baseFolder:string, coverage:CoverageEntry[]) {
+    const pathCoverage = coverage.map(entry => ({
+        ...entry,
+        path: entry.file.substring(baseFolder.length).split(Path.sep)
+    })).sort((a, b) => {
+        // Group folders, ordering files on top of their folders
+        const maxPath = Math.min(a.path.length - 1, b.path.length - 1);
+        for (let i = 0; i < maxPath; i++) {
+            const res = a.path[i]!.localeCompare(b.path[i]!);
+            if (res !== 0) {
+                return res;
+            }
+        }
+        if (a.path.length !== b.path.length) {
+            return a.path.length - b.path.length;
+        }
+        return a.path[maxPath]!.localeCompare(b.path[maxPath]!);
+    });
+    return getFolderTree(pathCoverage);
+}
+const enum TableCharacters {
+    Leaf = "└",
+    Skip = "│",
+    Connect = "├"
+}
+const enum TableTitles {
+    Coverage= "Coverage result",
+    File = "File",
+    Total = "Total",
+    Lines = "Lines",
+    UncoveredLines = "Uncovered lines"
+}
+type CoverageRow = {
+    padding:string;
+    file:string;
+    lines:{
+        total:number;
+        uncovered:number;
+        ratio:number;
+    }|null;
+    uncoveredLines:string;
+};
 export class DefaultFormatter implements Formatter {
     private readonly _root = new Root(null);
     private readonly tests = new Map<string, TestFormatter>();
+    private readonly coverage:CoverageEntry[][] = [];
+    private _options:FormatterOptions|null = null;
     constructor(private readonly _out:(msg:string)=>void = console.log) {
         this._root.show();
+    }
+    private _processCoverageFile(padding:string, file:PathCoverageEntry, rows:CoverageRow[]) {
+        const uncoveredLines:string[] = [];
+        let uncoveredLinesCount = 0;
+        let pendingUncovered:number|null = null;
+        const includeBranches = this._options ? this._options.branches : true;
+        for (let i = 0; i < file.lines.length; i++) {
+            const line = file.lines[i]!;
+            const uncoveredBranches:string[] = [];
+            let nextRange = 0;
+            for (const range of line.ranges) {
+                if (range.start === nextRange) {
+                    nextRange = range.end;
+                } else if (!includeBranches) {
+                    break;
+                } else {
+                    uncoveredBranches.push(nextRange + 1 !== range.start ? `${nextRange + 1}-${range.start}` : String(nextRange + 1));
+                    nextRange = range.end;
+                }
+            }
+            if (line.length !== nextRange && uncoveredBranches.length === 0) {
+                uncoveredLinesCount++;
+                if (pendingUncovered == null) {
+                    pendingUncovered = i;
+                }
+            } else if (pendingUncovered != null) {
+                uncoveredLines.push(`${includeBranches ? Style.Red : ""}${pendingUncovered !== i - 1 ? `${pendingUncovered + 1}-${i}` : pendingUncovered + 1}${Style.Reset}`);
+                pendingUncovered = null;
+            }
+            if (uncoveredBranches.length > 0) {
+                uncoveredLines.push(`${Style.Yellow}${i + 1}${Style.Reset}:[${uncoveredBranches.join("|")}]`);
+            }
+        }
+        if (pendingUncovered != null) {
+            uncoveredLines.push(`${includeBranches ? Style.Red : ""}${pendingUncovered !== file.lines.length - 1 ? `${pendingUncovered + 1}-${file.lines.length}` : pendingUncovered + 1}${Style.Reset}`);
+        }
+        rows.push({
+            padding: padding,
+            file: file.path.join(Path.sep),
+            lines: {
+                total: file.lines.length,
+                uncovered: uncoveredLinesCount,
+                ratio: (file.lines.length - uncoveredLinesCount) / file.lines.length
+            },
+            uncoveredLines: uncoveredLines.join(", ")
+        });
+    }
+    private _processCoverageTree(prefix:string, root:boolean, tree:TreeEntry, _rows:CoverageRow[] = []) {
+        for (let i = 0; i < tree.files.length; i++) {
+            const file = tree.files[i]!;
+            const isLast = tree.folders.length === 0 && i === tree.files.length - 1;
+            const padding = `${prefix}${!root ? `${isLast ? TableCharacters.Leaf : TableCharacters.Connect} ` : ""}`;
+            this._processCoverageFile(padding, file, _rows);
+        }
+        for (let i = 0; i < tree.folders.length; i++) {
+            const folder = tree.folders[i]!;
+            const isLast = i === tree.folders.length - 1;
+            const padding = `${prefix}${!root ? `${isLast ? TableCharacters.Leaf : TableCharacters.Connect} ` : ""}`;
+            _rows.push({
+                padding: padding,
+                file: folder.path.join(Path.sep),
+                lines: null,
+                uncoveredLines: ""
+            });
+            this._processCoverageTree(`${prefix}${!root ? (isLast ? " " : TableCharacters.Skip) : ""}${!root ? " " : ""}`, false, folder.entries, _rows);
+        }
+        return _rows;
+    }
+    
+    private _formatCoverage() {
+        const coverage = mergeCoverage(this.coverage, {
+            excludeFiles: this._options ? this._options.excludeFiles : [],
+            exclude: this._options ? this._options.exclude : [/\/node_modules\//i]
+        });
+        if (coverage.length > 0) {
+            const baseFolder = getCommonBasePath(coverage.map(entry => entry.file));
+            const coverageTree = groupCoverages(baseFolder, coverage);
+            const rows = this._processCoverageTree("", true, coverageTree);
+            const maxLength = {
+                file: Math.max(TableTitles.File.length, TableTitles.Total.length),
+                lines: TableTitles.Lines.length
+            };
+            for (const row of rows) {
+                const fileLength = row.padding.length + row.file.length;
+                if (fileLength > maxLength.file) {
+                    maxLength.file = fileLength;
+                }
+            }
+            this._out(`\n${TableTitles.Coverage}:`);
+            this._out(`┏━${"━".repeat(maxLength.file)}━┳━${"━".repeat(maxLength.lines)}━┳━━━ ━━  ━━   ──    ─`);
+            this._out(`┃ ${TableTitles.File.padEnd(maxLength.file, " ")} ┃ ${TableTitles.Lines.padEnd(maxLength.lines, " ")} ┃ ${TableTitles.UncoveredLines}`);
+            this._out(`┣━${"━".repeat(maxLength.file)}━╋━${"━".repeat(maxLength.lines)}━╋━━━ ━━  ━━   ──    ─`);
+            
+            let totalLines = 0;
+            let totalUncoveredLines = 0;
+            for (const row of rows) {
+                const color = row.lines ? row.lines.ratio >= 0.9 ? Style.Green : row.lines.ratio >= 0.5 ? Style.Yellow : Style.Red : "";
+                const lines = row.lines != null ? `${Math.floor(row.lines.ratio * 100)} %` : "";
+                if (row.lines != null) {
+                    totalLines += row.lines.total;
+                    totalUncoveredLines += row.lines.uncovered;
+                }
+                this._out(`┃ ${row.padding}${color}${row.file.padEnd(maxLength.file - row.padding.length, " ")}${Style.Reset} ┃ ${color}${lines.padStart(maxLength.lines, " ")}${Style.Reset} ┃ ${row.uncoveredLines}`);
+            }
+            this._out(`┣━${"━".repeat(maxLength.file)}━╋━${"━".repeat(maxLength.lines)}━╋━━━ ━━  ━━   ──    ─`);
+
+            const lines = `${Math.floor(((totalLines - totalUncoveredLines) / totalLines) * 100)} %`;
+            this._out(`┃ ${TableTitles.Total.padStart(maxLength.file, " ")} ┃ ${lines.padStart(maxLength.lines, " ")} ┃`);
+            this._out(`┗━${"━".repeat(maxLength.file)}━┻━${"━".repeat(maxLength.lines)}━┛`);
+        }
+    }
+    setOptions(options:FormatterOptions) {
+        this._options = options;
     }
     formatSummary(summary:Summary) {
         this._out(`\n${Style.Bold}Summary:${Style.Reset}`);
@@ -180,6 +406,7 @@ export class DefaultFormatter implements Formatter {
             this._out(formatSummaryResult("Describes", summary.describe));
         }
         this._out(formatSummaryResult("Total", summary.total));
+        this._formatCoverage();
         for (const {fileId, id, error} of summary.failed) {
             const test = this.tests.get(getUid(fileId, id));
             if (test && test.childrenOk) {
@@ -211,6 +438,10 @@ export class DefaultFormatter implements Formatter {
     }
     format(fileId:string, msg:Messages):void {
         switch (msg.type) {
+            case MessageType.COVERAGE: {
+                this.coverage.push(msg.coverage);
+                break;
+            }
             case MessageType.FILE_START: {
                 const root = new Root(this._root);
                 this._root.addChild(root);

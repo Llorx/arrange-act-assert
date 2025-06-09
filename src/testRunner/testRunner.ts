@@ -6,10 +6,11 @@ import * as Assert from "assert";
 import * as Crypto from "crypto";
 
 import { functionRunner, RunMonad } from "./functionRunner";
-import { clearModuleCache, getTestOptions, ResolvablePromise, resolvablePromise } from "../utils/utils";
+import { clearModuleCache, getTestOptions, ResolvablePromise, resolvablePromise, getCallSites } from "../utils/utils";
 import { Formatter, MessageType, Messages, TestInfo, TestType } from "../formatters";
 import { DefaultFormatter } from "../formatters/default";
 import { spawnTestFile, SpawnTestFileOptions } from "../spawnTestFile/spawnTestFile";
+import coverage from "../coverage/singleton";
 
 type AssertSnapshotObject<ARR, ACT> = {[name:string]:(act:Awaited<ACT>, arrange:Awaited<ARR>, after:After)=>unknown};
 
@@ -59,7 +60,10 @@ export type TestOptions = {
     snapshotsFolder?:string;
     confirmSnapshots?:boolean;
     reviewSnapshots?:boolean;
-    overwriteSnapshots?:boolean;
+    regenerateSnapshots?:boolean;
+    coverage?:boolean;
+    coverageExclude?:RegExp[];
+    coverageNoBranches?:boolean;
 };
 type FullTestOptions = {
     description:string;
@@ -93,6 +97,9 @@ class Test<ARR = any, ACT = any, ASS = any> {
     constructor(private _context:TestContext, private _options:FullTestOptions, readonly data?:TestInterface<ARR, ACT, ASS>|DescribeCallback) {}
     async run() {
         try {
+            if (this._options.coverage) {
+                await coverage.start();
+            }
             try {
                 this._context.send({
                     id: this.id,
@@ -215,11 +222,11 @@ class Test<ARR = any, ACT = any, ASS = any> {
         }
         let fileData;
         try {
-            fileData = !this._options.overwriteSnapshots && await this._context.readFile(file);
+            fileData = !this._options.regenerateSnapshots && await this._context.readFile(file);
         } catch (e) {}
         if (fileData) {
             const snapshot = V8.deserialize(fileData) as Snapshot;
-            if (snapshot.validated && !this._options.overwriteSnapshots) {
+            if (snapshot.validated && !this._options.regenerateSnapshots) {
                 Assert.deepStrictEqual(testData, snapshot.data);
             } else if (this._options.confirmSnapshots) {
                 Assert.deepStrictEqual(testData, snapshot.data);
@@ -429,7 +436,10 @@ class Root extends Test {
             snapshotsFolder: Path.join(process.cwd(), "snapshots"),
             confirmSnapshots: false,
             reviewSnapshots: false,
-            overwriteSnapshots: false,
+            regenerateSnapshots: false,
+            coverage: false,
+            coverageExclude: [],
+            coverageNoBranches: false,
             ...options
         });
     }
@@ -549,26 +559,37 @@ export function isMessage(msg:unknown):msg is { data: Messages } {
     return !!msg && typeof msg === "object" && "type" in msg && msg.type === "testRunner" && "data" in msg;
 }
 
+const testOptions:Partial<TestOptions> = process.env.AAA_TEST_OPTIONS ? JSON.parse(process.env.AAA_TEST_OPTIONS) : getTestOptions();
 let root:Root|null;
 function getRoot() {
     if (root) {
         return root;
     } else {
-        // Not a suite in this process (for example running a test file directly)
-        // So run tests and show errors if needed
-        // TODO: Test run single file without suite, newRoot or anything
-        const myRoot = newRoot(getTestOptions());
+        const myRoot = newRoot(testOptions);
+        if (myRoot.formatter) {
+            myRoot.formatter.setOptions({
+                excludeFiles: getCallSites(),
+                exclude: testOptions.coverageExclude || [/\/node_modules\//i],
+                branches: !testOptions.coverageNoBranches
+            });
+        }
         setImmediate(() => {
             myRoot.run().catch((e) => {
                 process.exitCode = 1111;
                 if (!myRoot.formatter || !myRoot.formatter.formatSummary) {
                     console.error(e);
                 }
-            }).finally(() => {
+            }).finally(async () => {
+                if (testOptions.coverage) {
+                    myRoot.processMessage("", {
+                        type: MessageType.COVERAGE,
+                        coverage: await coverage.takeCoverage()
+                    });
+                }
                 if (myRoot.formatter && myRoot.formatter.formatSummary) {
                     myRoot.formatter.formatSummary(myRoot.summary);
                 }
-                root = null; // Reset root, just in case another test is added in this process
+                root = null; // Reset root, just in case another test is added in this process, so root restarts again
             });
         });
         return myRoot;
@@ -589,11 +610,6 @@ export function newRoot(options?:TestOptions) {
     // Check notifyParentProcess inside of the function so can be reset during testing
     const notifyParentProcess = process.env.AAA_TEST_FILE && process.send && process.send.bind(process) || null;
     return root = new Root(notifyParentProcess, options);
-}
-
-if (process.env.AAA_TEST_FILE && process.send) {
-    // Create a root file when running inside a test suite child process
-    newRoot(process.env.AAA_TEST_OPTIONS ? JSON.parse(process.env.AAA_TEST_OPTIONS) : {});
 }
 
 export default buildTestFunction(null);

@@ -8,6 +8,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # Compiled binaries
 lib/
+precompiled-test-utils/**/*.js
 
 # Dependency directories
 node_modules/

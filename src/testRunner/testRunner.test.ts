@@ -169,9 +169,9 @@ test.describe("testRunner", (test) => {
             }
         });
         test("not allow tests after finishing", {
-            async ARRANGE() {
+            async ARRANGE(after) {
                 const resolvedTest = await new Promise<TestFunction>((resolve) => {
-                    newRoot().describe("", test => {
+                    afterNewRoot(after).describe("", test => {
                         test("empty", {
                             ASSERT() {}
                         });
@@ -747,7 +747,7 @@ test.describe("testRunner", (test) => {
             after(process.env.AAA_TEST_FILE, oldAAA => {
                 process.env.AAA_TEST_FILE = oldAAA
             });
-            process.env.AAA_TEST_FILE = "1";
+            process.env.AAA_TEST_FILE = "<file>";
             after(process.send, oldSend => {
                 process.send = oldSend
             });
@@ -1076,13 +1076,16 @@ test.describe("testRunner", (test) => {
             const formatter = getFormatter();
             const root = afterNewRoot(after);
             root.setFormatter({
+                setOptions(_) {
+                    
+                },
                 format: (_fileId, msg) => {
                     formatter.cb(msg);
                 }
             });
             return { formatter, root };
         }
-        async function runTest(testName:string, spawn = false) {
+        function runTest(testName:string, spawn = false) {
             test(testName, {
                 ARRANGE(after) {
                     return newFormatter(after);
@@ -1450,7 +1453,7 @@ test.describe("testRunner", (test) => {
                     });
                 }
             });
-            test("should overwrite a snapshot", {
+            test("should regenerate a snapshot", {
                 async ARRANGE(after) {
                     const snapshotsFolder = await tempFolder(after);
                     const myTest1 = afterNewRoot(after, {
@@ -1477,7 +1480,7 @@ test.describe("testRunner", (test) => {
                 async ACT({ snapshotsFolder }, after) {
                     const myTest = afterNewRoot(after, {
                         snapshotsFolder: snapshotsFolder,
-                        overwriteSnapshots: true
+                        regenerateSnapshots: true
                     });
                     return monad(() => myTest.test("test snapshot", {
                         SNAPSHOT() {

@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "target": "es2024",
+        "lib": ["ES2024"],
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "noImplicitOverride": true,
+        "noUncheckedIndexedAccess": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "strict": true,
+        "inlineSourceMap": true,
+        "outDir": "./coverage/lib"
+    },
+    "include": [
+        "./coverage/src/*"
+    ]
+}

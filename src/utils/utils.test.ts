@@ -1,7 +1,9 @@
 import * as Assert from "assert";
+import * as Util from "util";
+import * as Path from "path";
 
 import { monad, test } from "arrange-act-assert";
-import { resolvablePromise, clearModuleCache, getTestSuiteOptions, getTestOptions } from "./utils";
+import { resolvablePromise, clearModuleCache, getTestSuiteOptions, getTestOptions, getCallSites, getCommonBasePath } from "./utils";
 import { mockFiles } from "../test_folder_mock";
 
 test.describe("utils", (test) => {
@@ -186,12 +188,104 @@ test.describe("utils", (test) => {
     test.describe("processArgs", (test) => {
         test("should process args with equal (=)", {
             SNAPSHOT() {
-                return getTestSuiteOptions(["--folder=test", "--parallel", "3", "--exclude-files=test", "--include-files", "test", "--include-files=test2", "--exclude-files", "test2", "--spawn-args-prefix", "ok", "--spawn-args-prefix", "ok2", "--clear-module-cache"]);
+                return getTestSuiteOptions(["--folder=test", "--parallel", "3", "--exclude-files=test", "--include-files", "test", "--include-files=test2", "--exclude-files", "test2", "--spawn-args-prefix", "ok", "--spawn-args-prefix=ok2", "--clear-module-cache"]);
             }
         });
         test("should process multiple args", {
             SNAPSHOT() {
                 return getTestSuiteOptions(["--folder=test", "--parallel", "3", "--exclude-files", "test", "test2", "--include-files", "test", "test2"]);
+            }
+        });
+    });
+    test.describe("getCallSites", test => {
+        test("should call nodejs callsites", {
+            ACT() {
+                return getCallSites();
+            },
+            ASSERT(res) {
+                Assert.strictEqual(res.indexOf(__filename) > -1, true)
+            }
+        });
+        test("should call native callsites", {
+            ARRANGE(after) {
+                after(Util.getCallSite, getCallSite => (Util as any).getCallSite = getCallSite);
+                (Util as any).getCallSite = null;
+                after((Util as any).getCallSites, getCallSites => (Util as any).getCallSites = getCallSites);
+                (Util as any).getCallSites = null;
+            },
+            ACT() {
+                return getCallSites();
+            },
+            ASSERT(res) {
+                Assert.strictEqual(res.indexOf(__filename) > -1, true);
+            }
+        });
+    });
+    test.describe("getCommonBasePath", test => {
+        test("should return list of files with common base path filtered", {
+            ACT() {
+                return getCommonBasePath([
+                    Path.join("a", "b", "c"),
+                    Path.join("a", "b", "d"),
+                    Path.join("a", "x", "c")
+                ]);
+            },
+            ASSERT(res) {
+                Assert.strictEqual(res, "a" + Path.sep);
+            }
+        });
+        test("should return list of files with common base path filtered in deep subfolders", {
+            ACT() {
+                return getCommonBasePath([
+                    Path.join("a", "b", "c", "a", "a"),
+                    Path.join("a", "b", "c", "a", "a"),
+                    Path.join("a", "b", "c", "c", "a")
+                ]);
+            },
+            ASSERT(res) {
+                Assert.strictEqual(res, Path.join("a", "b", "c") + Path.sep);
+            }
+        });
+        test("should not filter the file name", {
+            ACT() {
+                return getCommonBasePath([
+                    Path.join("a", "b", "c"),
+                    Path.join("a", "b"),
+                    Path.join("a", "b", "d")
+                ]);
+            },
+            ASSERT(res) {
+                Assert.strictEqual(res, "a" + Path.sep);
+            }
+        });
+        test("should return an empty array if no files are filtered", {
+            ACT() {
+                return getCommonBasePath([]);
+            },
+            ASSERT(res) {
+                Assert.strictEqual(res, "");
+            }
+        });
+        test("should return a fill list if any patch matches", {
+            ACT() {
+                return getCommonBasePath([
+                    Path.join("a", "b", "c"),
+                    Path.join("b", "b"),
+                    Path.join("c", "b", "d")
+                ]);
+            },
+            ASSERT(res) {
+                Assert.deepStrictEqual(res, "");
+            }
+        });
+        test("should return a single file", {
+            ACT() {
+                return getCommonBasePath([
+                    Path.join("a", "b", "c")
+                ]);
+            },
+            ASSERT(res) {
+                Assert.strictEqual(res, Path.join("a", "b") + Path.sep);
             }
         });
     });
