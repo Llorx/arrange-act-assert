@@ -1,1 +1,1 @@
-This folder contains files compiled with a specific typescript version and parameters, so tests can always check against the same inputs and outputs
+This folder contains files compiled with a specific typescript version (5.8.3) and specific tsconfig.json, so tests can always check against the same inputs and outputs

@@ -8,6 +8,7 @@ import { Formatter, MessageType } from "../formatters";
 import { DefaultFormatter } from "../formatters/default";
 import { ReadDirOptions } from "../readDir/readDir";
 import coverage from "../coverage/singleton";
+import { getTestSuiteOptions } from "../utils/utils";
 
 export type TestSuiteOptions = {
     parallel:number;
@@ -40,6 +41,7 @@ export class TestSuite {
     constructor(options:Partial<TestSuiteOptions>, readonly context:TestSuiteContext = new MainContext()) {
         this.options = {
             ...DEFAULT_OPTIONS,
+            ...getTestSuiteOptions(),
             ...options
         };
         this._root = newRoot(this.options);

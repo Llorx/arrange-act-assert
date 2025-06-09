@@ -19,6 +19,30 @@ test.describe("TestSuite", (test) => {
             });
         }
     });
+    test("should process both options from options object and cli", {
+        ARRANGE(after) {
+            after(process.argv, argv => process.argv = argv);
+            process.argv = ["--include-files", "mytest-ok"];
+            return new TestSuite({
+                parallel: 1,
+                folder: Path.dirname(mockFiles["index"])
+            });
+        },
+        async ACT(suite) {
+            return await suite.run();
+        },
+        ASSERTS: {
+            "should list test files"(res) {
+                Assert.deepStrictEqual(res.files.sort(), [
+                    mockFiles["file1.mytest-ok"],
+                    mockFiles["file2.mytest-ok"]
+                ].sort());
+            },
+            [`should ok`](res) {
+                Assert.strictEqual(res.ok, true);
+            }
+        }
+    });
     test.describe("run suite", (test) => {
         function run(test:TestFunction, message:string, parallel:number, error = false, invalid = false) {
             test(message, {
