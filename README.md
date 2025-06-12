@@ -257,6 +257,7 @@ The `aaa` cli command accepts these options:
 - `--coverage`: Take coverage metrics.
 - `--coverage-exclude REGEX`: Regex to apply to each full file path found to exclude it. Defaults to `\/node_modules\/i`.
 - `--coverage-no-branches`: Do not show uncovered branches.
+- `--disable-source-maps`: When running a full test suite, source maps are enabled by default. Disable them with this option.
 - `--snapshots-folder`: Folder to place the snapshot files. Defaults to `./snapshots`. More info in the **Snapshots** section.
 - `--snapshots-confirm`: Confirm that the new snapshots created in the snapshots-folder are valid. More info in the **Snapshots** section.
 - `--snapshots-review`: Show all the snapshot outputs to check their values. More info in the **Snapshots** section.
@@ -297,6 +298,7 @@ type TestSuiteOptions = {
     coverage:boolean; // Take coverage metrics
     coverageExclude:RegExp[]; // Same logic as the "--coverage-exclude" option
     coverageNoBranches:boolean; // Same logic as the "--coverage-no-branches" option
+    disableSourceMaps:boolean; // Same logic as the "--disable-source-maps" option
     snapshotsFolder:string; // Folder to place the snapshots. Defaults to "./snapshots"
     confirmSnapshots:boolean; // To confirm the new snapshots, as stated in the "Snapshots" section
     reviewSnapshots:boolean; // To review all the snapshots, as stated in the "Snapshots" section

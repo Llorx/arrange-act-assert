@@ -64,6 +64,7 @@ export type TestOptions = {
     coverage?:boolean;
     coverageExclude?:RegExp[];
     coverageNoBranches?:boolean;
+    disableSourceMaps?:boolean;
 };
 type FullTestOptions = {
     description:string;
@@ -440,6 +441,7 @@ class Root extends Test {
             coverage: false,
             coverageExclude: [],
             coverageNoBranches: false,
+            disableSourceMaps: false,
             ...options
         });
     }
@@ -561,18 +563,17 @@ export function isMessage(msg:unknown):msg is { data: Messages } {
 
 const testOptions:Partial<TestOptions> = process.env.AAA_TEST_OPTIONS ? JSON.parse(process.env.AAA_TEST_OPTIONS) : getTestOptions();
 let root:Root|null;
+const files = new Set<string>();
+function addTestFiles() {
+    for (const file of getCallSites()) {
+        files.add(file);
+    }
+}
 function getRoot() {
     if (root) {
         return root;
     } else {
         const myRoot = newRoot(testOptions);
-        if (myRoot.formatter) {
-            myRoot.formatter.setOptions({
-                excludeFiles: getCallSites(),
-                exclude: testOptions.coverageExclude || [/\/node_modules\//i],
-                branches: !testOptions.coverageNoBranches
-            });
-        }
         setImmediate(() => {
             myRoot.run().catch((e) => {
                 process.exitCode = 1111;
@@ -583,7 +584,12 @@ function getRoot() {
                 if (testOptions.coverage) {
                     myRoot.processMessage("", {
                         type: MessageType.COVERAGE,
-                        coverage: await coverage.takeCoverage()
+                        coverage: await coverage.takeCoverage({
+                            excludeFiles: Array.from(files),
+                            exclude: testOptions.coverageExclude || [/\/node_modules\//i],
+                            branches: !testOptions.coverageNoBranches,
+                            sourceMaps: !testOptions.disableSourceMaps
+                        })
                     });
                 }
                 if (myRoot.formatter && myRoot.formatter.formatSummary) {
@@ -597,16 +603,19 @@ function getRoot() {
 }
 function buildTestFunction(myTest:Test|null):TestFunction {
     function test<ARR, ACT, ASS>(description:string, testData:TestInterface<ARR, ACT, ASS>) {
+        addTestFiles();
         return (myTest || getRoot()).test(description, testData);
     }
     test.test = test;
     test.describe = function describe(description:string, cb:DescribeCallback) {
+        addTestFiles();
         return (myTest || getRoot()).describe(description, cb);
     };
     return test;
 }
 
 export function newRoot(options?:TestOptions) {
+    addTestFiles();
     // Check notifyParentProcess inside of the function so can be reset during testing
     const notifyParentProcess = process.env.AAA_TEST_FILE && process.send && process.send.bind(process) || null;
     return root = new Root(notifyParentProcess, options);

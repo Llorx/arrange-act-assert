@@ -1,6 +1,6 @@
 {
   "name": "arrange-act-assert",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "description": "The lightweight \"Act-Arrange-Assert\" oriented testing framework",
   "main": "lib/",
   "types": "lib/types",
@@ -20,7 +20,7 @@
     "build": "npm run clean && npx tsc -p tsconfig.build.json",
     "build-debug": "npm run clean && npx tsc -p tsconfig.json && npm run build-test-utils",
     "build-test-utils": "cd precompiled-test-utils && npm install && npm run build",
-    "test": "npx aaa",
+    "test": "node node_modules/arrange-act-assert/lib/cli.js",
     "clean": "node -e \"require('fs').rm('lib', {recursive: true}, O_o => {})\""
   },
   "author": "Llorx",
@@ -35,7 +35,7 @@
   "homepage": "https://github.com/Llorx/arrange-act-assert#readme",
   "devDependencies": {
     "@types/node": "^22.7.8",
-    "arrange-act-assert": "^2.1.2",
+    "arrange-act-assert": "^2.5.0",
     "typescript": "^5.6.3"
   }
 }

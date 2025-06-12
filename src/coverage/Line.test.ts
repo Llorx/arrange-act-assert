@@ -16,7 +16,7 @@ test.describe("Line", test => {
         },
         SNAPSHOT(line) {
             line.count(10, 20, 1);
-            return line.getRanges();
+            return line.getRanges(true);
         }
     });
     test.describe("insert between start (new.end <= old.end && new.start > old.start)", test => {
@@ -30,7 +30,7 @@ test.describe("Line", test => {
                     },
                     SNAPSHOT(line) {
                         line.count(11, 20, count);
-                        return line.getRanges();
+                        return line.getRanges(true);
                     }
                 });
                 test(`should ${merge} previous overlapping range inside the block [old[new]old] [x]`, {
@@ -39,7 +39,7 @@ test.describe("Line", test => {
                     },
                     SNAPSHOT(line) {
                         line.count(11, 19, count);
-                        return line.getRanges();
+                        return line.getRanges(true);
                     }
                 });
             });
@@ -59,7 +59,7 @@ test.describe("Line", test => {
                     },
                     SNAPSHOT(line) {
                         line.count(0, 9, count);
-                        return line.getRanges();
+                        return line.getRanges(true);
                     }
                 });
                 test(`should ${merge} previous overlapping range with exactly the end [new|old] [x]`, {
@@ -68,7 +68,7 @@ test.describe("Line", test => {
                     },
                     SNAPSHOT(line) {
                         line.count(0, 10, count);
-                        return line.getRanges();
+                        return line.getRanges(true);
                     }
                 });
                 test(`should ${merge} previous overlapping range with exceeding the end [newold] [x]`, {
@@ -77,7 +77,7 @@ test.describe("Line", test => {
                     },
                     SNAPSHOT(line) {
                         line.count(0, 11, count);
-                        return line.getRanges();
+                        return line.getRanges(true);
                     }
                 });
                 test(`should ${merge} previous overlapping range with exactly the start and end |newold| [x]`, {
@@ -86,7 +86,7 @@ test.describe("Line", test => {
                     },
                     SNAPSHOT(line) {
                         line.count(10, 20, count);
-                        return line.getRanges();
+                        return line.getRanges(true);
                     }
                 });
                 test(`should ${merge} previous overlapping range with exactly the start and smaller end |newold]old] [x]`, {
@@ -95,7 +95,7 @@ test.describe("Line", test => {
                     },
                     SNAPSHOT(line) {
                         line.count(10, 15, count);
-                        return line.getRanges();
+                        return line.getRanges(true);
                     }
                 });
                 test("should overwrite previous range that wraps the full block [new[oldnew|", {
@@ -104,7 +104,7 @@ test.describe("Line", test => {
                     },
                     SNAPSHOT(line) {
                         line.count(0, 20, count);
-                        return line.getRanges();
+                        return line.getRanges(true);
                     }
                 });
             });
@@ -124,7 +124,7 @@ test.describe("Line", test => {
                     },
                     SNAPSHOT(line) {
                         line.count(41, 50, count);
-                        return line.getRanges();
+                        return line.getRanges(true);
                     }
                 });
                 test(`should ${merge} next overlapping range with exactly the start [x] [old|new]`, {
@@ -133,7 +133,7 @@ test.describe("Line", test => {
                     },
                     SNAPSHOT(line) {
                         line.count(40, 50, count);
-                        return line.getRanges();
+                        return line.getRanges(true);
                     }
                 });
                 test(`should ${merge} next overlapping range with exceeding the start [x] [oldnew]`, {
@@ -142,7 +142,7 @@ test.describe("Line", test => {
                     },
                     SNAPSHOT(line) {
                         line.count(39, 50, count);
-                        return line.getRanges();
+                        return line.getRanges(true);
                     }
                 });
                 test("should overwrite next range that overlaps the full block[x] |newold]new]", {
@@ -151,7 +151,7 @@ test.describe("Line", test => {
                     },
                     SNAPSHOT(line) {
                         line.count(30, 50, count);
-                        return line.getRanges();
+                        return line.getRanges(true);
                     }
                 });
             });
@@ -167,7 +167,7 @@ test.describe("Line", test => {
             },
             SNAPSHOT(line) {
                 line.count(20, 25, 3);
-                return line.getRanges();
+                return line.getRanges(true);
             }
         });
         test("should merge multiple counts when end is equal", {
@@ -176,7 +176,7 @@ test.describe("Line", test => {
             },
             SNAPSHOT(line) {
                 line.count(15, 20, 3);
-                return line.getRanges();
+                return line.getRanges(true);
             }
         });
         test("should merge multiple counts overlapping 2 blocks", {
@@ -185,7 +185,23 @@ test.describe("Line", test => {
             },
             SNAPSHOT(line) {
                 line.count(19, 25, 3);
-                return line.getRanges();
+                return line.getRanges(true);
+            }
+        });
+        test("should get an empty line if partial branch happens", {
+            ARRANGE() {
+                return newLine([10, 20, 1], [20, 30, 2]);
+            },
+            SNAPSHOT(line) {
+                return line.getRanges(false);
+            }
+        });
+        test("should get full line if no partial branch happens", {
+            ARRANGE() {
+                return newLine([0, 10, 1], [10, 100, 2]);
+            },
+            SNAPSHOT(line) {
+                return line.getRanges(false);
             }
         });
     });

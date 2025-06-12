@@ -1076,9 +1076,6 @@ test.describe("testRunner", (test) => {
             const formatter = getFormatter();
             const root = afterNewRoot(after);
             root.setFormatter({
-                setOptions(_) {
-                    
-                },
                 format: (_fileId, msg) => {
                     formatter.cb(msg);
                 }

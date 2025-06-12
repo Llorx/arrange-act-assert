@@ -208,9 +208,9 @@ test.describe("utils", (test) => {
         });
         test("should call native callsites", {
             ARRANGE(after) {
-                after(Util.getCallSite, getCallSite => (Util as any).getCallSite = getCallSite);
+                after((Util as any).getCallSite, getCallSite => (Util as any).getCallSite = getCallSite);
                 (Util as any).getCallSite = null;
-                after((Util as any).getCallSites, getCallSites => (Util as any).getCallSites = getCallSites);
+                after(Util.getCallSites, getCallSites => (Util as any).getCallSites = getCallSites);
                 (Util as any).getCallSites = null;
             },
             ACT() {

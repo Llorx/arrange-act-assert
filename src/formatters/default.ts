@@ -1,7 +1,7 @@
 import * as Util from "util";
 import * as Path from "path";
 
-import { TestInfo, Messages, MessageType, Formatter, TestType, FormatterOptions } from "."
+import { TestInfo, Messages, MessageType, Formatter, TestType } from "."
 import { Summary, SummaryResult } from "../testRunner/testRunner";
 import { CoverageEntry } from "../coverage/Coverage";
 import mergeCoverage from "../coverage/merge";
@@ -281,7 +281,6 @@ export class DefaultFormatter implements Formatter {
     private readonly _root = new Root(null);
     private readonly tests = new Map<string, TestFormatter>();
     private readonly coverage:CoverageEntry[][] = [];
-    private _options:FormatterOptions|null = null;
     constructor(private readonly _out:(msg:string)=>void = console.log) {
         this._root.show();
     }
@@ -289,7 +288,6 @@ export class DefaultFormatter implements Formatter {
         const uncoveredLines:string[] = [];
         let uncoveredLinesCount = 0;
         let pendingUncovered:number|null = null;
-        const includeBranches = this._options ? this._options.branches : true;
         for (let i = 0; i < file.lines.length; i++) {
             const line = file.lines[i]!;
             const uncoveredBranches:string[] = [];
@@ -297,8 +295,6 @@ export class DefaultFormatter implements Formatter {
             for (const range of line.ranges) {
                 if (range.start === nextRange) {
                     nextRange = range.end;
-                } else if (!includeBranches) {
-                    break;
                 } else {
                     uncoveredBranches.push(nextRange + 1 !== range.start ? `${nextRange + 1}-${range.start}` : String(nextRange + 1));
                     nextRange = range.end;
@@ -310,7 +306,7 @@ export class DefaultFormatter implements Formatter {
                     pendingUncovered = i;
                 }
             } else if (pendingUncovered != null) {
-                uncoveredLines.push(`${includeBranches ? Style.Red : ""}${pendingUncovered !== i - 1 ? `${pendingUncovered + 1}-${i}` : pendingUncovered + 1}${Style.Reset}`);
+                uncoveredLines.push(`${Style.Red}${pendingUncovered !== i - 1 ? `${pendingUncovered + 1}-${i}` : pendingUncovered + 1}${Style.Reset}`);
                 pendingUncovered = null;
             }
             if (uncoveredBranches.length > 0) {
@@ -318,7 +314,7 @@ export class DefaultFormatter implements Formatter {
             }
         }
         if (pendingUncovered != null) {
-            uncoveredLines.push(`${includeBranches ? Style.Red : ""}${pendingUncovered !== file.lines.length - 1 ? `${pendingUncovered + 1}-${file.lines.length}` : pendingUncovered + 1}${Style.Reset}`);
+            uncoveredLines.push(`${Style.Red}${pendingUncovered !== file.lines.length - 1 ? `${pendingUncovered + 1}-${file.lines.length}` : pendingUncovered + 1}${Style.Reset}`);
         }
         rows.push({
             padding: padding,
@@ -354,10 +350,7 @@ export class DefaultFormatter implements Formatter {
     }
     
     private _formatCoverage() {
-        const coverage = mergeCoverage(this.coverage, {
-            excludeFiles: this._options ? this._options.excludeFiles : [],
-            exclude: this._options ? this._options.exclude : [/\/node_modules\//i]
-        });
+        const coverage = mergeCoverage(this.coverage);
         if (coverage.length > 0) {
             const baseFolder = getCommonBasePath(coverage.map(entry => entry.file));
             const coverageTree = groupCoverages(baseFolder, coverage);
@@ -394,9 +387,6 @@ export class DefaultFormatter implements Formatter {
             this._out(`┃ ${TableTitles.Total.padStart(maxLength.file, " ")} ┃ ${lines.padStart(maxLength.lines, " ")} ┃`);
             this._out(`┗━${"━".repeat(maxLength.file)}━┻━${"━".repeat(maxLength.lines)}━┛`);
         }
-    }
-    setOptions(options:FormatterOptions) {
-        this._options = options;
     }
     formatSummary(summary:Summary) {
         this._out(`\n${Style.Bold}Summary:${Style.Reset}`);

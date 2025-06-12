@@ -8,7 +8,7 @@ import { Formatter, MessageType } from "../formatters";
 import { DefaultFormatter } from "../formatters/default";
 import { ReadDirOptions } from "../readDir/readDir";
 import coverage from "../coverage/singleton";
-import { getTestSuiteOptions } from "../utils/utils";
+import * as Utils from "../utils/utils";
 
 export type TestSuiteOptions = {
     parallel:number;
@@ -41,7 +41,7 @@ export class TestSuite {
     constructor(options:Partial<TestSuiteOptions>, readonly context:TestSuiteContext = new MainContext()) {
         this.options = {
             ...DEFAULT_OPTIONS,
-            ...getTestSuiteOptions(),
+            ...Utils.getTestSuiteOptions(),
             ...options
         };
         this._root = newRoot(this.options);
@@ -54,12 +54,20 @@ export class TestSuite {
         if (this.options.coverage) {
             await coverage.start();
         }
+        if (!this.options.disableSourceMaps && this.options.parallel === 1) {
+            Utils.enableSourceMaps();
+        }
         const result = await this._run();
         await this._root.end();
         if (this.options.coverage && this.options.parallel === 0) {
             this._root.processMessage("", {
                 type: MessageType.COVERAGE,
-                coverage: await coverage.takeCoverage()
+                coverage: await coverage.takeCoverage({
+                    excludeFiles: result.files,
+                    exclude: this.options.exclude,
+                    branches: !this.options.coverageNoBranches,
+                    sourceMaps: !this.options.disableSourceMaps
+                })
             });
         }
         this.options.formatter.formatSummary && this.options.formatter.formatSummary(this._root.summary);
@@ -75,13 +83,6 @@ export class TestSuite {
     }
     async _run() {
         const files = await this.context.getFiles(this.options.folder, this.options);
-        if (this.options.formatter) {
-            this.options.formatter.setOptions({
-                excludeFiles: files,
-                exclude: this.options.exclude,
-                branches: !this.options.coverageNoBranches
-            });
-        }
         if (this.options.parallel === 0) {
             const errors:unknown[] = [];
             for (const file of files) {

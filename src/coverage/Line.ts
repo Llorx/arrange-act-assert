@@ -145,14 +145,21 @@ export class Line {
         } while (nextBlock);
         this._append(lastNextBlock, start, end, count);
     }
-    getRanges() {
+    getRanges(partial:boolean) {
         const ranges:LineRange[] = [];
         let nextBlock = this._blocks;
         let lastRange:LineRange|null = null;
+        let nextOffset = 0;
         while (nextBlock) {
             if (lastRange && lastRange.end === nextBlock.start && lastRange.count === nextBlock.count) {
                 lastRange.end = nextBlock.end;
+                if (lastRange.end !== nextOffset) {
+                    nextOffset = lastRange.end;
+                }
             } else {
+                if (nextBlock.start !== nextOffset) {
+                    nextOffset = nextBlock.end;
+                }
                 ranges.push(lastRange = {
                     start: nextBlock.start,
                     end: nextBlock.end,
@@ -161,6 +168,10 @@ export class Line {
             }
             nextBlock = nextBlock.next;
         }
-        return ranges;
+        if (partial || nextOffset === this.length) {
+            return ranges;
+        } else {
+            return [];
+        }
     }
 }

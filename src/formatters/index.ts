@@ -52,6 +52,5 @@ export type FormatterOptions = {
 };
 export interface Formatter {
     formatSummary?(summary:Summary):void;
-    setOptions(options:FormatterOptions):void;
     format(fileId:string, msg:Messages):void;
 }

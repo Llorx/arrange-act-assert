@@ -41,6 +41,16 @@ test.describe("monad", (test) => {
                     Assert.doesNotThrow(() => res.should.ok(123));
                 }
             });
+            test("should error if error when ok", {
+                ACT() {
+                    return monad(() => {
+                        throw new Error("test");
+                    });
+                },
+                ASSERT(res) {
+                    Assert.throws(() => res.should.ok(123));
+                }
+            });
             test("should assert error", {
                 ACT() {
                     return monad(() => {
@@ -50,6 +60,16 @@ test.describe("monad", (test) => {
                 ASSERT(res) {
                     Assert.doesNotThrow(() => res.should.error({
                         message: "ok"
+                    }));
+                }
+            });
+            test("should error if ok when error", {
+                ACT() {
+                    return monad(() => 123);
+                },
+                ASSERT(res) {
+                    Assert.throws(() => res.should.error({
+                        message: "test"
                     }));
                 }
             });

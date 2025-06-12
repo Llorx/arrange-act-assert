@@ -1,38 +1,22 @@
-import { spawn } from "child_process";
 import * as Path from "path";
 
 import test from "arrange-act-assert";
 
 import { CoverageEntry } from "./Coverage";
 import { monad } from "../monad/monad";
+import * as Utils from "../utils/utils";
 
 test.describe("Coverage", test => {
     async function runCoverageFile(sourceMaps:boolean) {
-        return new Promise<CoverageEntry[]>((resolve, reject) => {
-            const args:string[] = [];
-            if (sourceMaps) {
-                args.push("--enable-source-maps");
-            }
-            args.push(Path.join(__dirname, "..", "..", "precompiled-test-utils", "coverage", "lib", "coverage.mock.run.js"));
-            let resolved = false;
-            const child = spawn(process.execPath, args, {
-                serialization: "advanced",
-                stdio: ["ignore", "ignore", "pipe", "ipc"]
-            }).on("error", reject).on("exit", () => {
-                if (!resolved) {
-                    reject(new Error(`No coverage received. stderr: ${String(Buffer.concat(stderr))}`));
-                }
-            }).on("message", msg => {
-                if (msg && typeof msg ==="object" && "type" in msg && msg.type === "aaa-coverage" && "coverage" in msg) {
-                    resolved = true;
-                    resolve(msg.coverage as CoverageEntry[]);
-                }
-            });
-            const stderr:Buffer[] = [];
-            child.stderr!.on("data", data => {
-                stderr.push(data);
-            });
-        });
+        const resetSourceMaps = sourceMaps ? Utils.enableSourceMaps() : Utils.disableSourceMaps();
+        const testFile = Path.join(__dirname, "..", "..", "precompiled-test-utils", "coverage", "lib", "coverage.mock.run.js");
+        Utils.clearModuleCache(testFile);
+        const { run } = require(testFile);
+        try {
+            return await run(sourceMaps);
+        } finally {
+            resetSourceMaps.reset();
+        }
     }
     function findMockFile(entries:CoverageEntry[], ext = "") {
         const mockFile = entries.find(({file}) => file.includes(`coverage.mock.file${ext}`));
@@ -40,6 +24,9 @@ test.describe("Coverage", test => {
             throw new Error("Mock file not found");
         }
         mockFile.file = Path.basename(mockFile.file);
+        if (mockFile.originalFile) {
+            mockFile.originalFile = Path.basename(mockFile.originalFile);
+        }
         return mockFile;
     }
     test("should take no sourcemap coverage", {

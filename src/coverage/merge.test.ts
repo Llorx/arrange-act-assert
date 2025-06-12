@@ -10,6 +10,7 @@ test.describe("merge", test => {
         ARRANGE() {
             const coverage1:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: []
             }];
@@ -21,6 +22,7 @@ test.describe("merge", test => {
         ASSERT(res) {
             Assert.deepStrictEqual(res, [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: []
             }]);
@@ -30,11 +32,13 @@ test.describe("merge", test => {
         ARRANGE() {
             const coverage1:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: []
             }];
             const coverage2:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: []
             }];
@@ -46,6 +50,7 @@ test.describe("merge", test => {
         ASSERT(res) {
             Assert.deepStrictEqual(res, [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: []
             }]);
@@ -55,11 +60,13 @@ test.describe("merge", test => {
         ARRANGE() {
             const coverage1:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: []
             }];
             const coverage2:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: "error",
                 lines: []
             }];
@@ -71,6 +78,7 @@ test.describe("merge", test => {
         ASSERT(res) {
             Assert.deepStrictEqual(res, [{
                 file: "file1",
+                originalFile: null,
                 error: "error",
                 lines: []
             }]);
@@ -80,11 +88,13 @@ test.describe("merge", test => {
         ARRANGE() {
             const coverage1:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: []
             }];
             const coverage2:CoverageEntry[] = [{
                 file: "file2",
+                originalFile: null,
                 error: "error",
                 lines: []
             }];
@@ -96,10 +106,12 @@ test.describe("merge", test => {
         ASSERT(res) {
             Assert.deepStrictEqual(res, [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: []
             }, {
                 file: "file2",
+                originalFile: null,
                 error: "error",
                 lines: []
             }]);
@@ -109,6 +121,7 @@ test.describe("merge", test => {
         ARRANGE() {
             const coverage1:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -117,6 +130,7 @@ test.describe("merge", test => {
             }];
             const coverage2:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: []
             }];
@@ -128,6 +142,7 @@ test.describe("merge", test => {
         ASSERT(res) {
             Assert.deepStrictEqual(res, [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -140,6 +155,7 @@ test.describe("merge", test => {
         ARRANGE() {
             const coverage1:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -148,6 +164,7 @@ test.describe("merge", test => {
             }];
             const coverage2:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -165,6 +182,7 @@ test.describe("merge", test => {
         ASSERT(res) {
             Assert.deepStrictEqual(res, [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -180,6 +198,7 @@ test.describe("merge", test => {
         ARRANGE() {
             const coverage1:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -191,6 +210,7 @@ test.describe("merge", test => {
             }];
             const coverage2:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 11,
@@ -208,6 +228,7 @@ test.describe("merge", test => {
         ASSERT(res) {
             Assert.deepStrictEqual(res, [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 11,
@@ -223,6 +244,7 @@ test.describe("merge", test => {
         ARRANGE() {
             const coverage1:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -235,6 +257,7 @@ test.describe("merge", test => {
             }];
             const coverage2:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -249,6 +272,7 @@ test.describe("merge", test => {
         ASSERT(res) {
             Assert.deepStrictEqual(res, [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -265,6 +289,7 @@ test.describe("merge", test => {
         ARRANGE() {
             const coverage1:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -277,6 +302,7 @@ test.describe("merge", test => {
             }];
             const coverage2:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -295,6 +321,7 @@ test.describe("merge", test => {
         ASSERT(res) {
             Assert.deepStrictEqual(res, [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -319,6 +346,7 @@ test.describe("merge", test => {
         ARRANGE() {
             const coverage1:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -331,6 +359,7 @@ test.describe("merge", test => {
             }];
             const coverage2:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -349,6 +378,7 @@ test.describe("merge", test => {
         ASSERT(res) {
             Assert.deepStrictEqual(res, [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -373,6 +403,7 @@ test.describe("merge", test => {
         ARRANGE() {
             const coverage1:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -385,6 +416,7 @@ test.describe("merge", test => {
             }];
             const coverage2:CoverageEntry[] = [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -403,6 +435,7 @@ test.describe("merge", test => {
         ASSERT(res) {
             Assert.deepStrictEqual(res, [{
                 file: "file1",
+                originalFile: null,
                 error: null,
                 lines: [{
                     length: 10,
@@ -416,84 +449,6 @@ test.describe("merge", test => {
                         count: 2
                     }]
                 }]
-            }]);
-        }
-    });
-    test("should exclude specific files", {
-        ARRANGE() {
-            const coverage1:CoverageEntry[] = [{
-                file: "file1",
-                error: null,
-                lines: []
-            }, {
-                file: "file4",
-                error: null,
-                lines: []
-            }];
-            const coverage2:CoverageEntry[] = [{
-                file: "file2",
-                error: null,
-                lines: []
-            }, {
-                file: "file3",
-                error: null,
-                lines: []
-            }];
-            return [coverage1, coverage2];
-        },
-        ACT(coverage) {
-            return merge(coverage, {
-                excludeFiles: ["file1", "file2"]
-            });
-        },
-        ASSERT(res) {
-            Assert.deepStrictEqual(res, [{
-                file: "file4",
-                error: null,
-                lines: []
-            }, {
-                file: "file3",
-                error: null,
-                lines: []
-            }]);
-        }
-    });
-    test("should exclude regex", {
-        ARRANGE() {
-            const coverage1:CoverageEntry[] = [{
-                file: "file1.out",
-                error: null,
-                lines: []
-            }, {
-                file: "file4",
-                error: null,
-                lines: []
-            }];
-            const coverage2:CoverageEntry[] = [{
-                file: "file2.out2",
-                error: null,
-                lines: []
-            }, {
-                file: "file3",
-                error: null,
-                lines: []
-            }];
-            return [coverage1, coverage2];
-        },
-        ACT(coverage) {
-            return merge(coverage, {
-                exclude: [/\.out/, /\.out2/]
-            });
-        },
-        ASSERT(res) {
-            Assert.deepStrictEqual(res, [{
-                file: "file4",
-                error: null,
-                lines: []
-            }, {
-                file: "file3",
-                error: null,
-                lines: []
             }]);
         }
     });

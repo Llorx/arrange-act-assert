@@ -1,5 +1,7 @@
 import * as Util from "util";
 import * as Path from "path";
+import * as Module from "module";
+
 import type { TestOptions } from "../testRunner/testRunner";
 import type { TestSuiteOptions } from "../TestSuite/TestSuite";
 
@@ -48,6 +50,120 @@ export function clearModuleCache(file:string, _root = Path.dirname(file) + Path.
             }
         }
     }
+}
+export function enableSourceMaps() {
+    // Enable source maps programmatically in all the possible ways
+    let originalSourcemapSupport = {
+        enabled: false,
+        nodeModules: false,
+        processArgv: false
+    };
+    if ((Module as any).setSourceMapsSupport) {
+        originalSourcemapSupport = (Module as any).getSourceMapsSupport();
+        (Module as any).setSourceMapsSupport(true, {
+            nodeModules: originalSourcemapSupport.nodeModules
+        });
+    } else if (typeof process.setSourceMapsEnabled === "function") {
+        originalSourcemapSupport.enabled = process.sourceMapsEnabled;
+        process.setSourceMapsEnabled(true);
+    } else {
+        // node < 14
+        if (process.env.NODE_OPTIONS) {
+            originalSourcemapSupport.enabled = process.env.NODE_OPTIONS.includes("--enable-source-maps");
+            if (!originalSourcemapSupport.enabled) {
+                process.env.NODE_OPTIONS = `${process.env.NODE_OPTIONS} --enable-source-maps`;
+            }
+        } else {
+            process.env.NODE_OPTIONS = "--enable-source-maps";
+        }
+        originalSourcemapSupport.processArgv = process.execArgv.includes("--enable-source-maps");
+        if (!originalSourcemapSupport.processArgv) {
+            process.execArgv.push("--enable-source-maps");
+        }
+    }
+    return {
+        reset() {
+            if ((Module as any).setSourceMapsSupport) {
+                if (!originalSourcemapSupport.enabled) {
+                    (Module as any).setSourceMapsSupport(false);
+                }
+            } else if (typeof process.setSourceMapsEnabled === "function") {
+                if (!originalSourcemapSupport.enabled) {
+                    process.setSourceMapsEnabled(false);
+                }
+            } else {
+                // node < 14
+                if (!originalSourcemapSupport.enabled && process.env.NODE_OPTIONS && process.env.NODE_OPTIONS.includes("--enable-source-maps")) {
+                    process.env.NODE_OPTIONS = process.env.NODE_OPTIONS.replace(/--enable-source-maps/g, "");
+                }
+                if (!originalSourcemapSupport.processArgv) {
+                    let index;
+                    while((index = process.execArgv.indexOf("--enable-source-maps")) > -1) {
+                        process.execArgv.splice(index, 1);
+                    }
+                }
+            }
+        }
+    };
+}
+export function disableSourceMaps() {
+    let originalSourcemapSupport = {
+        enabled: false,
+        nodeModules: false,
+        processArgv: false
+    };
+    if ((Module as any).setSourceMapsSupport) {
+        originalSourcemapSupport = (Module as any).getSourceMapsSupport();
+        (Module as any).setSourceMapsSupport(false);
+    } else if (typeof process.setSourceMapsEnabled === "function") {
+        originalSourcemapSupport.enabled = process.sourceMapsEnabled;
+        process.setSourceMapsEnabled(false);
+    } else {
+        // node < 14
+        if (process.env.NODE_OPTIONS) {
+            originalSourcemapSupport.enabled = process.env.NODE_OPTIONS.includes("--enable-source-maps");
+            if (originalSourcemapSupport.enabled) {
+                process.env.NODE_OPTIONS = process.env.NODE_OPTIONS.replace(/--enable-source-maps/g, "");
+            }
+        }
+        originalSourcemapSupport.processArgv = process.execArgv.includes("--enable-source-maps");
+        if (originalSourcemapSupport.processArgv) {
+            let index;
+            while((index = process.execArgv.indexOf("--enable-source-maps")) > -1) {
+                process.execArgv.splice(index, 1);
+            }
+        }
+    }
+    return {
+        reset() {
+            if ((Module as any).setSourceMapsSupport) {
+                if (originalSourcemapSupport.enabled) {
+                    (Module as any).setSourceMapsSupport(originalSourcemapSupport.enabled, {
+                        nodeModules: originalSourcemapSupport.nodeModules
+                    });
+                }
+            } else if (typeof process.setSourceMapsEnabled === "function") {
+                if (originalSourcemapSupport.enabled) {
+                    process.setSourceMapsEnabled(true);
+                }
+            } else {
+                // node < 14
+                if (originalSourcemapSupport.enabled) {
+                    if (process.env.NODE_OPTIONS) {
+                        originalSourcemapSupport.enabled = process.env.NODE_OPTIONS.includes("--enable-source-maps");
+                        if (!originalSourcemapSupport.enabled) {
+                            process.env.NODE_OPTIONS = `${process.env.NODE_OPTIONS} --enable-source-maps`;
+                        }
+                    } else {
+                        process.env.NODE_OPTIONS = "--enable-source-maps";
+                    }
+                }
+                if (originalSourcemapSupport.processArgv) {
+                    process.execArgv.push("--enable-source-maps");
+                }
+            }
+        }
+    };
 }
 
 function processArgs(args:string[]) {
@@ -167,15 +283,19 @@ export function getTestOptions(argv = process.argv) {
     if (coverage) {
         options.coverage = true;
     }
+    const disableSourceMaps = args.get("disable-source-maps");
+    if (disableSourceMaps) {
+        options.disableSourceMaps = true;
+    }
     return options;
 }
 export function getCallSites() {
     let callsite:string[] = [];
     try {
-        callsite = (Util as any).getCallSites().map((callSite:Util.StacktraceObject) => callSite.scriptName); // node > 22
+        callsite = Util.getCallSites().map(callSite => callSite.scriptName); // node > 22.9
     } catch (e) {
         try {
-            callsite = Util.getCallSite().map(callSite => callSite.scriptName); // node == 22
+            callsite = (Util as any).getCallSite().map((callSite:Util.CallSiteObject) => callSite.scriptName); // node == 22
         } catch (e) {
             // node < 22
             const prepareStackTrace = Error.prepareStackTrace;
