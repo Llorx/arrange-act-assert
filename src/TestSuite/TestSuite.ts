@@ -54,23 +54,20 @@ export class TestSuite {
         if (this.options.coverage) {
             await coverage.start();
         }
-        if (!this.options.disableSourceMaps && this.options.parallel === 1) {
-            Utils.enableSourceMaps();
-        }
         const result = await this._run();
         await this._root.end();
         if (this.options.coverage && this.options.parallel === 0) {
             this._root.processMessage("", {
                 type: MessageType.COVERAGE,
-                coverage: await coverage.takeCoverage({
-                    excludeFiles: result.files,
-                    exclude: this.options.exclude,
-                    branches: !this.options.coverageNoBranches,
-                    sourceMaps: !this.options.disableSourceMaps
-                })
+                coverage: await coverage.takeCoverage()
             });
         }
-        this.options.formatter.formatSummary && this.options.formatter.formatSummary(this._root.summary);
+        this.options.formatter.formatSummary && await this.options.formatter.formatSummary(this._root.summary, {
+            excludeFiles: result.files,
+            exclude: this.options.exclude,
+            branches: !this.options.coverageNoBranches,
+            sourceMaps: !this.options.disableSourceMaps
+        });
         for (const error of result.errors) {
             console.error(error);
         }

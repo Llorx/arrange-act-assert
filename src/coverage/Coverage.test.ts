@@ -1,72 +1,38 @@
 import * as Path from "path";
+import * as Url from "url";
+import * as Assert from "assert";
+import * as Inspector from "inspector";
 
 import test from "arrange-act-assert";
 
-import { CoverageEntry } from "./Coverage";
-import { monad } from "../monad/monad";
-import * as Utils from "../utils/utils";
+import { Coverage } from "./Coverage";
 
 test.describe("Coverage", test => {
-    async function runCoverageFile(sourceMaps:boolean) {
-        const resetSourceMaps = sourceMaps ? Utils.enableSourceMaps() : Utils.disableSourceMaps();
-        const testFile = Path.join(__dirname, "..", "..", "precompiled-test-utils", "coverage", "lib", "coverage.mock.run.js");
-        Utils.clearModuleCache(testFile);
-        const { run } = require(testFile);
-        try {
-            return await run(sourceMaps);
-        } finally {
-            resetSourceMaps.reset();
-        }
-    }
-    function findMockFile(entries:CoverageEntry[], ext = "") {
-        const mockFile = entries.find(({file}) => file.includes(`coverage.mock.file${ext}`));
+    function findCoverageFile(entries:Inspector.Profiler.ScriptCoverage[], file:string) {
+        const fileUrl = Url.pathToFileURL(file).href;
+        const mockFile = entries.find(({url}) => url === fileUrl);
         if (!mockFile) {
             throw new Error("Mock file not found");
         }
-        mockFile.file = Path.basename(mockFile.file);
-        if (mockFile.originalFile) {
-            mockFile.originalFile = Path.basename(mockFile.originalFile);
-        }
+        mockFile.url = Path.basename(mockFile.url);
         return mockFile;
     }
-    test("should take no sourcemap coverage", {
-        ACT() {
-            return runCoverageFile(false);
+    function testFunction(a:number, b:number) {
+        return a + b;
+    }
+    test("should take function coverage", {
+        async ARRANGE(after) {
+            const coverage = after(new Coverage(), coverage => coverage.stop());
+            await coverage.start();
+            return coverage;
         },
-        ASSERTS: {
-            "should find javascript file"(coverage) {
-                findMockFile(coverage, ".js");
-            },
-            "should not find typescript file"(coverage) {
-                monad(() => findMockFile(coverage, ".ts")).should.error({
-                    message: /Mock file not found/
-                });
-            }
+        ACT(coverage) {
+            testFunction(1, 2);
+            return coverage.takeCoverage();
         },
-        SNAPSHOTS: {
-            "should return valid ranges"(coverage) {
-                return findMockFile(coverage, ".js");
-            }
-        }
-    });
-    test("should take sourcemap coverage", {
-        ACT() {
-            return runCoverageFile(true);
-        },
-        ASSERTS: {
-            "should not find javascript file"(coverage) {
-                monad(() => findMockFile(coverage, ".js")).should.error({
-                    message: /Mock file not found/
-                });
-            },
-            "should find typescript file"(coverage) {
-                findMockFile(coverage, ".ts");
-            }
-        },
-        SNAPSHOTS: {
-            "should return valid ranges"(coverage) {
-                return findMockFile(coverage, ".ts");
-            }
+        ASSERT(res) {
+            const file = findCoverageFile(res, __filename);
+            Assert.strictEqual(file.functions.find(entry => entry.functionName === testFunction.name)?.ranges[0]?.count, 1);
         }
     });
 });

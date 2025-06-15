@@ -1,11 +1,12 @@
 import * as Util from "util";
 import * as Path from "path";
+import * as Inspector from "inspector";
 
 import { TestInfo, Messages, MessageType, Formatter, TestType } from "."
 import { Summary, SummaryResult } from "../testRunner/testRunner";
-import { CoverageEntry } from "../coverage/Coverage";
 import mergeCoverage from "../coverage/merge";
 import { getCommonBasePath } from "../utils/utils";
+import { CoverageEntry, CoverageOptions, processCoverage } from "../coverage/processCoverage";
 
 export const enum Style {
     None = "",
@@ -280,7 +281,7 @@ type CoverageRow = {
 export class DefaultFormatter implements Formatter {
     private readonly _root = new Root(null);
     private readonly tests = new Map<string, TestFormatter>();
-    private readonly coverage:CoverageEntry[][] = [];
+    private readonly coverage:Inspector.Profiler.ScriptCoverage[][] = [];
     constructor(private readonly _out:(msg:string)=>void = console.log) {
         this._root.show();
     }
@@ -349,8 +350,12 @@ export class DefaultFormatter implements Formatter {
         return _rows;
     }
     
-    private _formatCoverage() {
-        const coverage = mergeCoverage(this.coverage);
+    private async _formatCoverage(coverageOptions:CoverageOptions) {
+        const coverages:CoverageEntry[][] = [];
+        for (const coverage of this.coverage) {
+            coverages.push(await processCoverage(coverage, coverageOptions));
+        }
+        const coverage = mergeCoverage(coverages);
         if (coverage.length > 0) {
             const baseFolder = getCommonBasePath(coverage.map(entry => entry.file));
             const coverageTree = groupCoverages(baseFolder, coverage);
@@ -388,7 +393,7 @@ export class DefaultFormatter implements Formatter {
             this._out(`┗━${"━".repeat(maxLength.file)}━┻━${"━".repeat(maxLength.lines)}━┛`);
         }
     }
-    formatSummary(summary:Summary) {
+    async formatSummary(summary:Summary, coverageOptions:CoverageOptions) {
         this._out(`\n${Style.Bold}Summary:${Style.Reset}`);
         this._out(formatSummaryResult("Asserts", summary.assert));
         this._out(formatSummaryResult("Tests", summary.test));
@@ -396,7 +401,7 @@ export class DefaultFormatter implements Formatter {
             this._out(formatSummaryResult("Describes", summary.describe));
         }
         this._out(formatSummaryResult("Total", summary.total));
-        this._formatCoverage();
+        await this._formatCoverage(coverageOptions);
         for (const {fileId, id, error} of summary.failed) {
             const test = this.tests.get(getUid(fileId, id));
             if (test && test.childrenOk) {
@@ -424,7 +429,6 @@ export class DefaultFormatter implements Formatter {
             // TODO: Test no asserts run
             throw new Error("No asserts run");
         }
-        return summary;
     }
     format(fileId:string, msg:Messages):void {
         switch (msg.type) {

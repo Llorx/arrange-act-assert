@@ -584,16 +584,16 @@ function getRoot() {
                 if (testOptions.coverage) {
                     myRoot.processMessage("", {
                         type: MessageType.COVERAGE,
-                        coverage: await coverage.takeCoverage({
-                            excludeFiles: Array.from(files),
-                            exclude: testOptions.coverageExclude || [/\/node_modules\//i],
-                            branches: !testOptions.coverageNoBranches,
-                            sourceMaps: !testOptions.disableSourceMaps
-                        })
+                        coverage: await coverage.takeCoverage()
                     });
                 }
                 if (myRoot.formatter && myRoot.formatter.formatSummary) {
-                    myRoot.formatter.formatSummary(myRoot.summary);
+                    myRoot.formatter.formatSummary(myRoot.summary, {
+                        excludeFiles: Array.from(files),
+                        exclude: testOptions.coverageExclude || [/\/node_modules\//i],
+                        branches: !testOptions.coverageNoBranches,
+                        sourceMaps: !testOptions.disableSourceMaps
+                    });
                 }
                 root = null; // Reset root, just in case another test is added in this process, so root restarts again
             });

@@ -1,5 +1,5 @@
-import { CoverageEntry, CoverageLine } from "./Coverage";
 import { LineRange } from "./Line";
+import { CoverageEntry, CoverageLine } from "./processCoverage";
 
 function mergeRanges(rangeA:LineRange[], rangeB:LineRange[]) {
     const result:LineRange[] = [];
@@ -42,30 +42,17 @@ function mergeLines(linesA:CoverageLine[], linesB:CoverageLine[]) {
 }
 export default function merge(coverage:CoverageEntry[][]) {
     const files = new Map<string, CoverageEntry>();
-    const withOriginals:CoverageEntry[] = [];
     for (const entries of coverage) {
         for (const entry of entries) {
-            if (entry.originalFile) {
-                withOriginals.push(entry);
-            }
             const oldEntry = files.get(entry.file);
             if (oldEntry) {
                 if (entry.error && !oldEntry.error) {
                     oldEntry.error = entry.error;
                 }
-                if (entry.originalFile && !oldEntry.originalFile) {
-                    oldEntry.originalFile = entry.originalFile;
-                }
                 oldEntry.lines = mergeLines(oldEntry.lines, entry.lines);
             } else {
                 files.set(entry.file, entry);
             }
-        }
-    }
-    // Process originalFile after creating the map to avoid race conditions
-    for (const entry of withOriginals) {
-        if (entry.originalFile) {
-            files.delete(entry.originalFile);
         }
     }
     return Array.from(files.values());

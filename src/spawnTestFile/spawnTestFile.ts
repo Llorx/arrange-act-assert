@@ -13,23 +13,9 @@ export type SpawnTestFileOptions = {
 
 export function spawnTestFile(path:string, options:SpawnTestFileOptions, cb:(msg:unknown)=>void) {
     return new Promise<void>((resolve, reject) => {
-        const execArgv = process.execArgv.slice();
-        const env = {...process.env};
-        if (!options.disableSourceMaps) {
-            if (!execArgv.includes("--enable-source-maps")) {
-                execArgv.push("--enable-source-maps");
-            }
-            if (env.NODE_OPTIONS) {
-                if (!env.NODE_OPTIONS.includes("--enable-source-maps")) {
-                    env.NODE_OPTIONS = `${env.NODE_OPTIONS} --enable-source-maps`;
-                }
-            } else {
-                env.NODE_OPTIONS = "--enable-source-maps";
-            }
-        }
-        const testProcess = spawn(process.execPath, [...execArgv, ...options.prefix, EntryPoint.path], {
+        const testProcess = spawn(process.execPath, [...process.execArgv, ...options.prefix, EntryPoint.path], {
             env: {
-                ...env,
+                ...process.env,
                 AAA_TEST_FILE: path,
                 AAA_TEST_OPTIONS: JSON.stringify({
                     snapshotsFolder: options.snapshotsFolder,

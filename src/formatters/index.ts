@@ -1,5 +1,7 @@
-import { CoverageEntry } from "../coverage/Coverage";
+import * as Inspector from "inspector";
+
 import { Summary } from "../testRunner/testRunner";
+import { CoverageOptions } from "../coverage/processCoverage";
 
 export const enum TestType {
     TEST,
@@ -24,7 +26,7 @@ export type MessageBase = {
 };
 export type MessageCoverage = {
     type:MessageType.COVERAGE;
-    coverage:CoverageEntry[];
+    coverage:Inspector.Profiler.ScriptCoverage[];
 };
 export type MessageFileStart = {
     type:MessageType.FILE_START;
@@ -51,6 +53,6 @@ export type FormatterOptions = {
     branches:boolean;
 };
 export interface Formatter {
-    formatSummary?(summary:Summary):void;
+    formatSummary?(summary:Summary, coverageOptions:CoverageOptions):void|Promise<void>;
     format(fileId:string, msg:Messages):void;
 }
