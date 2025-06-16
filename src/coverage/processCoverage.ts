@@ -2,7 +2,7 @@ import * as Url from "url";
 import * as Path from "path";
 import * as Module from "module";
 import * as Fs from "fs";
-import * as Inspector from "inspector";
+import type * as Inspector from "inspector";
 
 import { Line, LineRange } from "./Line";
 import { testRegex } from "../utils/utils";

@@ -1,10 +1,16 @@
-import * as Inspector from "inspector";
+import type * as InspectorI from "inspector";
+let Inspector:typeof InspectorI|null = null;
+try {
+    Inspector = require("inspector");
+} catch (e) {
+    console.error(e);
+}
 
 export class Coverage {
-    private _session:Inspector.Session|null = null;
+    private _session:InspectorI.Session|null = null;
     start() {
         return new Promise<void>((resolve, reject) => {
-            if (this._session) {
+            if (this._session || !Inspector) {
                 return resolve();
             }
             this._session = new Inspector.Session();
@@ -40,7 +46,7 @@ export class Coverage {
         });
     }
     takeCoverage() {
-        return new Promise<Inspector.Profiler.ScriptCoverage[]>((resolve, reject) => {
+        return new Promise<InspectorI.Profiler.ScriptCoverage[]>((resolve, reject) => {
             if (!this._session) {
                 return reject("No session enabled");
             }

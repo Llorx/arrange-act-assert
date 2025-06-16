@@ -1,4 +1,4 @@
-import * as Inspector from "inspector";
+import type * as Inspector from "inspector";
 
 import { Summary } from "../testRunner/testRunner";
 import { CoverageOptions } from "../coverage/processCoverage";

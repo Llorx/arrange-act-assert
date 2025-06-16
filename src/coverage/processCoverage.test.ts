@@ -1,5 +1,5 @@
 import * as Path from "path";
-import * as Inspector from "inspector";
+import type * as Inspector from "inspector";
 
 import test, { monad } from "arrange-act-assert";
 

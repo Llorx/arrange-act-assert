@@ -1,7 +1,7 @@
 import * as Path from "path";
 import * as Url from "url";
 import * as Assert from "assert";
-import * as Inspector from "inspector";
+import type * as Inspector from "inspector";
 
 import test from "arrange-act-assert";
 

@@ -11,7 +11,17 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "runtimeArgs": ["--enable-source-maps", "--expose-internals"],
+            "args": ["--coverage"],
+            "runtimeArgs": ["--enable-source-maps"],
+            "type": "node"
+        },
+        {
+            "name": "Launch tests",
+            "program": "./node_modules/arrange-act-assert/lib/cli.js",
+            "request": "launch",
+            "skipFiles": [],
+            "args": ["--coverage", "--parallel=1"],
+            "runtimeArgs": ["--enable-source-maps"],
             "type": "node"
         },
         {
@@ -19,7 +29,7 @@
             "program": "${file}",
             "request": "launch",
             "skipFiles": [],
-            "runtimeArgs": ["--enable-source-maps", "--expose-internals"],
+            "runtimeArgs": ["--enable-source-maps"],
             "type": "node"
         }
     ]

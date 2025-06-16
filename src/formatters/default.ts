@@ -1,6 +1,6 @@
 import * as Util from "util";
 import * as Path from "path";
-import * as Inspector from "inspector";
+import type * as Inspector from "inspector";
 
 import { TestInfo, Messages, MessageType, Formatter, TestType } from "."
 import { Summary, SummaryResult } from "../testRunner/testRunner";
