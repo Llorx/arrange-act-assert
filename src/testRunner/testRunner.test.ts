@@ -62,6 +62,7 @@ test.describe("testRunner", (test) => {
         };
     }
     test.describe("Should run in order", (test) => {
+        // TODO: Test SNAPSHOT/SNAPSHOTS
         test("ARRANGE -> ACT -> ASSERT", {
             ARRANGE(after) {
                 const step = stepped();
@@ -1828,6 +1829,49 @@ test.describe("testRunner", (test) => {
                     });
                 }
             });
+        });
+    });
+    test.describe("after test", test => {
+        function getSpyCb() {
+            const cb = () => {
+                cb.done = true;
+            };
+            cb.done = false;
+            return cb;
+        }
+        test("should run after test", {
+            ARRANGE(after) {
+                const myTest = afterNewRoot(after);
+                const cb = getSpyCb();
+                return { myTest, cb }
+            },
+            async ACT({ myTest, cb }) {
+                myTest.after(cb);
+                await myTest.test("", {
+                    async ACT() {}
+                });
+            },
+            ASSERT(_, { cb }) {
+                Assert.strictEqual(cb.done, true);
+            }
+        });
+        test("should run after describe", {
+            ARRANGE(after) {
+                const myTest = afterNewRoot(after);
+                const cb = getSpyCb();
+                return { myTest, cb }
+            },
+            async ACT({ myTest, cb }) {
+                myTest.after(cb);
+                await myTest.describe("", test => {
+                    test.test("", {
+                        async ACT() {}
+                    });
+                });
+            },
+            ASSERT(_, { cb }) {
+                Assert.strictEqual(cb.done, true);
+            }
         });
     });
 });

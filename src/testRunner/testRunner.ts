@@ -34,6 +34,7 @@ export type TestFunction = {
     <ARR, ACT, ASS>(description:string, testData:TestInterface<ARR, ACT, ASS>):Promise<void>;
     test:TestFunction;
     describe(description:string, cb:(test:TestFunction, after:After)=>unknown):Promise<void>;
+    after(cb:()=>void):void;
 };
 export type RunTestFileOptions = {
     clearModuleCache:boolean;
@@ -88,7 +89,9 @@ class Test<ARR = any, ACT = any, ASS = any> {
     private _tests:Test[] = [];
     private _pending:Test[] = [];
     private _finished = false;
+    private _ended = false;
     private _afters:(()=>void)[] = [];
+    private _afterTest:(()=>void)[] = [];
     private _testErrors:{test:Test, error:unknown}[] = [];
     readonly id = ids++;
     private _addAfter:After = (data, cb) => {
@@ -112,7 +115,15 @@ class Test<ARR = any, ACT = any, ASS = any> {
                     await this._runDescribe(this.data);
                 }
             } finally {
-                await this.end();
+                try {
+                    await this._runAfters();
+                } finally {
+                    try {
+                        await this.end();
+                    } finally {
+                        await this._runAfterTests();
+                    }
+                }
             }
             const firstTestError = this._testErrors[0];
             if (firstTestError) {
@@ -136,6 +147,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
     async end() {
         this._finished = true;
         await this._awaitSubtests();
+        this._ended = true;
     }
     private _isDescribe() {
         return typeof this.data !== "object";
@@ -157,6 +169,13 @@ class Test<ARR = any, ACT = any, ASS = any> {
     }
     test<ARR, ASS, ACT>(description:string, testData:TestInterface<ARR, ASS, ACT>) {
         return this._add(description, testData);
+    }
+    after(cb:()=>void) {
+        if (this._ended) {
+            cb();
+        } else {
+            this._afterTest.push(cb);
+        }
     }
     private _add<ARR, ASS, ACT>(description:string, testData:TestInterface<ARR, ASS, ACT>|DescribeCallback) {
         const test = new Test(this._context, {
@@ -200,6 +219,11 @@ class Test<ARR = any, ACT = any, ASS = any> {
         }
         this._pendingPromise.resolve();
         this._pendingPromise = null;
+        try {
+            await this._runAfterTests();
+        } catch (error) {
+            this._testErrors.push({ test: this, error });
+        }
     }
     private async _awaitSubtests() {
         await Promise.allSettled(this._tests.map(test => test._promise));
@@ -332,68 +356,75 @@ class Test<ARR = any, ACT = any, ASS = any> {
         return functionRunner("SNAPSHOT", null, []); // Always return a RunMonad
     }
     private async _runTest(test:TestInterface<ARR, ACT, ASS>) {
-        try {
-            const arrangeResult = await functionRunner("ARRANGE", test.ARRANGE || null, [this._addAfter]);
-            if (arrangeResult.run && !arrangeResult.ok) {
-                throw arrangeResult.error;
+        const arrangeResult = await functionRunner("ARRANGE", test.ARRANGE || null, [this._addAfter]);
+        if (arrangeResult.run && !arrangeResult.ok) {
+            throw arrangeResult.error;
+        }
+        const actResult = await functionRunner("ACT", "ACT" in test && test.ACT || null, [arrangeResult.data, this._addAfter]);
+        let actResultData;
+        let snapshotResult;
+        if (actResult.run) {
+            if (!actResult.ok) {
+                throw actResult.error;
             }
-            const actResult = await functionRunner("ACT", "ACT" in test && test.ACT || null, [arrangeResult.data, this._addAfter]);
-            let actResultData;
-            let snapshotResult;
-            if (actResult.run) {
-                if (!actResult.ok) {
-                    throw actResult.error;
-                }
-                actResultData = actResult.data;
-            } else {
-                snapshotResult = await this._runSnapshot("SNAPSHOT" in test && test.SNAPSHOT || null, [arrangeResult.data, this._addAfter]);
-                if (snapshotResult.run && !snapshotResult.ok) {
-                    throw snapshotResult.error;
-                }
-                actResultData = snapshotResult.data;
+            actResultData = actResult.data;
+        } else {
+            snapshotResult = await this._runSnapshot("SNAPSHOT" in test && test.SNAPSHOT || null, [arrangeResult.data, this._addAfter]);
+            if (snapshotResult.run && !snapshotResult.ok) {
+                throw snapshotResult.error;
             }
-            if (test.ASSERT) {
-                const assertResult = await this._runAssert(test.ASSERT, [actResultData, arrangeResult.data, this._addAfter]);
-                if (assertResult.run && !assertResult.ok) {
-                    throw assertResult.error;
-                }
-            }
-            let assertError = null;
-            if (!snapshotResult || !snapshotResult.run) {
-                for (const [description, cb] of this._getSnapshots()) {
-                    // TODO: Test multiple SNAPSHOTS
-                    const snapshotResult = await this._runSnapshot(cb, [actResultData, arrangeResult.data, this._addAfter], description);
-                    if (snapshotResult.run && !snapshotResult.ok && !assertError) {
-                        assertError = snapshotResult;
-                    }
-                }
-            }
-            for (const [description, cb] of this._getAsserts()) {
-                // TODO: Test mutiple ASSERTS
-                const assertResult = await this._runAssert(cb, [actResultData, arrangeResult.data, this._addAfter], description);
-                if (assertResult.run && !assertResult.ok && !assertError) {
-                    assertError = assertResult;
-                }
-            }
-            if (assertError) {
-                throw assertError.error;
-            }
-        } finally {
-            const aftersResult = await this._runAfters();
-            if (aftersResult && aftersResult.run && !aftersResult.ok) {
-                throw aftersResult.error;
+            actResultData = snapshotResult.data;
+        }
+        if (test.ASSERT) {
+            const assertResult = await this._runAssert(test.ASSERT, [actResultData, arrangeResult.data, this._addAfter]);
+            if (assertResult.run && !assertResult.ok) {
+                throw assertResult.error;
             }
         }
+        let assertError = null;
+        if (!snapshotResult || !snapshotResult.run) {
+            for (const [description, cb] of this._getSnapshots()) {
+                // TODO: Test multiple SNAPSHOTS
+                const snapshotResult = await this._runSnapshot(cb, [actResultData, arrangeResult.data, this._addAfter], description);
+                if (snapshotResult.run && !snapshotResult.ok && !assertError) {
+                    assertError = snapshotResult;
+                }
+            }
+        }
+        for (const [description, cb] of this._getAsserts()) {
+            // TODO: Test mutiple ASSERTS
+            const assertResult = await this._runAssert(cb, [actResultData, arrangeResult.data, this._addAfter], description);
+            if (assertResult.run && !assertResult.ok && !assertError) {
+                assertError = assertResult;
+            }
+        }
+        if (assertError) {
+            throw assertError.error;
+        }
     }
-    private async _runAfters():Promise<RunMonad<any>|null> {
+    private async _runAfters():Promise<void> {
         let doneError:RunMonad<any>|null = null;
-        for (const cb of this._afters) {
+        for (const cb of this._afters.splice(0)) {
             const afterResult = await functionRunner("AFTER", cb, []);
             if (afterResult.run && !afterResult.ok && !doneError) {
                 doneError = afterResult;
             }
         }
-        return doneError;
+        if (doneError && doneError.run && !doneError.ok) {
+            throw doneError.error;
+        }
+    }
+    private async _runAfterTests():Promise<void> {
+        let doneError:RunMonad<any>|null = null;
+        for (const cb of this._afterTest.splice(0)) {
+            const afterResult = await functionRunner("AFTER TEST", cb, []);
+            if (afterResult.run && !afterResult.ok && !doneError) {
+                doneError = afterResult;
+            }
+        }
+        if (doneError && doneError.run && !doneError.ok) {
+            throw doneError.error;
+        }
     }
 }
 class Root extends Test {
@@ -610,6 +641,10 @@ function buildTestFunction(myTest:Test|null):TestFunction {
     test.describe = function describe(description:string, cb:DescribeCallback) {
         addTestFiles();
         return (myTest || getRoot()).describe(description, cb);
+    };
+    test.after = function after(cb:()=>void) {
+        addTestFiles();
+        return (myTest || getRoot()).after(cb);
     };
     return test;
 }

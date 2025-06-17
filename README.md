@@ -190,6 +190,26 @@ test.describe("myDescribe", (test) => {
     });
 });
 ```
+And you can add an `after` callback to any test that will run after all queued subtests are executed:
+```typescript
+test.after(() => {
+    console.log("after all tests");
+});
+test.describe("myDescribe 1", (test) => {
+    test.after(() => {
+        console.log("after myDescribe 1 tests");
+    });
+    test("myTest1", {...});
+    test("myTest2", {...});
+});
+test.describe("myDescribe 2", (test) => {
+    test.after(() => {
+        console.log("after myDescribe 2 tests");
+    });
+    test("myTest1", {...});
+    test("myTest2", {...});
+});
+```
 While this tool forces you to have a single ARRANGE and ACT for each test to avoid sharing different arrangements and trying different actions on the same test, you can actually try to assert different parts of the actions, like so:
 ```typescript
 test("myTest", {
