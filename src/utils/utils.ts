@@ -143,7 +143,7 @@ export function getTestOptions(argv = process.argv) {
     if (coverageNoBranches != null) {
         options.coverageNoBranches = true;
     }
-    const snapshotsFolder = args.get("snapshots-folder");
+    const snapshotsFolder = args.get("snapshots-folder") || args.get("folder-snapshots");
     if (snapshotsFolder) {
         if (snapshotsFolder.length === 0) {
             throw new Error(`--snapshots-folder needs a value`);
@@ -152,15 +152,15 @@ export function getTestOptions(argv = process.argv) {
         }
         options.snapshotsFolder = snapshotsFolder[0];
     }
-    const confirmSnapshots = args.get("snapshots-confirm");
+    const confirmSnapshots = args.get("snapshots-confirm") || args.get("confirm-snapshots");
     if (confirmSnapshots) {
         options.confirmSnapshots = true;
     }
-    const reviewSnapshots = args.get("snapshots-review");
+    const reviewSnapshots = args.get("snapshots-review") || args.get("review-snapshots");
     if (reviewSnapshots) {
         options.reviewSnapshots = true;
     }
-    const regenerateSnapshots = args.get("snapshots-regenerate");
+    const regenerateSnapshots = args.get("snapshots-regenerate") || args.get("regenerate-snapshots");
     if (regenerateSnapshots) {
         options.regenerateSnapshots = true;
     }

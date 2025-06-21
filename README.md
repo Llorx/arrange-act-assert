@@ -2,120 +2,7 @@
 Zero-dependency lightweight Act-Arrange-Assert oriented testing tool.
 
 # Motivation
-Focusing lately in unitary testing, I noticed that I wanted to reduce the amount of *brain cycles* that I waste designing and reading tests, so I started adding `// Act // Arrange // Assert` [comments to all my tests](https://github.com/goldbergyoni/javascript-testing-best-practices?tab=readme-ov-file#section-0%EF%B8%8F%E2%83%A3-the-golden-rule) so it helps me to notice when something is not in the proper section and also helps identifying each section on first sight, but there's a thing I love more than testing: **design-oriented development**. Humans are fallible so I prefer for the tool or project premise to force me to follow methodologies and good practices instead of me applying my own rules over my workflow. The more good practices you are forced to do, the less chances to have a problem because, for example, you had a headache one day and you didn't notice a mistake.
-
-With this idea, I created the Act-Arrange-Assert testing tool that reduces the amount of *brain cycles* wasted when you have to read and design your tests.
-
-For example, having this test using NodeJS test runner:
-```typescript
-import test from "node:test";
-import Assert from "node:assert";
-
-import { MyFactory } from "./MyFactory";
-import { MyBase } from "./MyBase";
-
-test("should do that thing properly", () => {
-    const baseOptions = {
-        a: 1,
-        b: 2,
-        c: 3,
-        d: 4
-    };
-    const base = new MyBase(baseOptions);
-    base.open();
-    test.after(() => base.close());
-    base.setData("a", 2);
-    const factory = new MyFactory();
-    test.after(() => factory.dispose());
-    const processor = factory.getProcessor();
-    const data = processor.processBase(base);
-    Assert.deepScriptEqual(data, {
-        a: 2,
-        b: 27
-    });
-});
-```
-Try to read and understand the different implicit sections. You notice how you had to spend *brain cycles* to understand it. To improve this test I would do something like this:
-```typescript
-import test from "node:test";
-import Assert from "node:assert";
-
-import { MyFactory } from "./MyFactory";
-import { MyBase } from "./MyBase";
-
-test("should do that thing properly", () => {
-    // Arrange
-    const baseOptions = {
-        a: 1,
-        b: 2,
-        c: 3,
-        d: 4
-    };
-    const base = new MyBase(baseOptions);
-    test.after(() => base.close());
-    base.open();
-    base.setData("a", 2);
-    const factory = new MyFactory();
-    test.after(() => factory.dispose());
-    const processor = factory.getProcessor();
-
-    // Act
-    const data = processor.processBase(base);
-
-    // Assert
-    Assert.deepScriptEqual(data, {
-        a: 2,
-        b: 27
-    });
-});
-```
-This helps to differenciate the sections, for example helping you to avoid mixing the the `// Act` and `// Assert` sections like this:
-```typescript
-Assert.deepScriptEqual(processor.processBase(base), {...}); // Bad
-```
-Still I don't like the idea of just using comments, because that's a rule I've set to myself. The native NodeJS test runner stills allows me to do *weird* things (like multiple acts in a single test) that maybe some day I do for whatever reason.
-
-With `arrange-act-assert` it helps design a test like this:
-```typescript
-import test from "arrange-act-assert";
-import Assert from "node:assert";
-
-import { MyFactory } from "./MyFactory";
-import { MyBase } from "./MyBase";
-
-test("should do that thing properly", {
-    ARRANGE(after) {
-        const baseOptions = {
-            a: 1,
-            b: 2,
-            c: 3,
-            d: 4
-        };
-        const base = after(new MyBase(baseOptions), item => item.close());
-        base.open();
-        base.setData("a", 2);
-        const factory = after(new MyFactory(), item => item.close());
-        const processor = factory.getProcessor();
-        return { base, processor };
-    },
-    ACT({ base, processor }) {
-        return processor.processBase(base);
-    },
-    ASSERT(data) {
-        Assert.deepScriptEqual(data, {
-            a: 2,
-            b: 27
-        });
-    }
-});
-```
-If you actually read the code, I bet that one of the first things that you saw were the uppercase sections. I can hear you screaming "ugh those uppercase section names!" and that's precisely **my pitch**: they're noticeable, they're easy to see, THEY'RE UPPERCASE, so you wasted almost no *brain cycles* identifying them.
-
-The tool, by design, helped you to differenciate the method that you are trying to test (the `processBase()` inside the *ACT*) and what result it should return (the `{ a: 2, b: 27 }` inside the *ASSERT*).
-
-Apart from that, the `after` callback has a different approach. It wraps the item to be cleared and returns it in the callback function. This way the item to be cleared is directly linked to the callback that will clear it, helping you to create individual clearing callbacks for each element that needs to be cleared. Imagine that one clear callback with 3 elements inside fails on the element 2 for whatever reason. The third element is never going to clear and you will end up with a leaking resource that may pollute your remaining tests (*insert panik.png here*).
-
-And that's very much it.
+[More detailed information here](https://medium.com/@Llorx/how-i-created-my-own-testing-framework-13d998ef5c73).
 
 # Documentation
 The tool is pretty straightforward:
@@ -278,10 +165,10 @@ The `aaa` cli command accepts these options:
 - `--coverage-exclude REGEX`: Regex to apply to each full file path found to exclude it. Defaults to `\/node_modules\/i`.
 - `--coverage-no-branches`: Do not show uncovered branches.
 - `--disable-source-maps`: When running a full test suite, source maps are enabled by default. Disable them with this option.
-- `--snapshots-folder`: Folder to place the snapshot files. Defaults to `./snapshots`. More info in the **Snapshots** section.
-- `--snapshots-confirm`: Confirm that the new snapshots created in the snapshots-folder are valid. More info in the **Snapshots** section.
-- `--snapshots-review`: Show all the snapshot outputs to check their values. More info in the **Snapshots** section.
-- `--snapshots-regenerate`: Regenerate all snapshot files with new ones. More info in the **Snapshots** section.
+- `--snapshots-folder`/`--folder-snapshots`: Folder to place the snapshot files. Defaults to `./snapshots`. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
+- `--snapshots-confirm`/`--confirm-snapshots`: Confirm that the new snapshots created in the folder-snapshots are valid. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
+- `--snapshots-review`/`--review-snapshots`: Show all the snapshot outputs to check their values. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
+- `--snapshots-regenerate`/`--regenerate-snapshots`: Regenerate all snapshot files with new ones. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
 
 Alternatively, you can import the `TestSuite` and run your tests programatically:
 ```typescript
@@ -375,11 +262,11 @@ It will return a `Monad` object with the methods `should.ok(VALUE)`, `should.err
 # Snapshots
 There's a snapshots system to easily assert method outputs that should return the same values between tests.
 
-To ensure that snapshots are validated, a confirmation process is implemented: It will first save unvalidated snapshots and show the snapshot output for you to review manually. You must check that the outputs are valid and then the run the tests again with the `--snapshots-confirm` (cli) or `confirmSnapshots: true` (programmatically) option so the new snapshots are validated. Unvalidated snapshots are treated as non-existant for a normal run.
+To ensure that snapshots are validated, a confirmation process is implemented: It will first save unvalidated snapshots and show the snapshot output for you to review manually. You must check that the outputs are valid and then the run the tests again with the `--confirm-snapshots` (cli) or `confirmSnapshots: true` (programmatically) option so the new snapshots are validated. Unvalidated snapshots are treated as non-existant for a normal run.
 
-The snapshots are binary files serialized with the [V8.serialize()](https://nodejs.org/api/v8.html#v8serializevalue) method, so all types supported by this serialization method are valid. If you want to review them again, you must use the `--snapshots-review` (cli) or `reviewSnapshots: true` (programmatically) option.
+The snapshots are binary files serialized with the [V8.serialize()](https://nodejs.org/api/v8.html#v8serializevalue) method, so all types supported by this serialization method are valid. If you want to review them again, you must use the `--review-snapshots` (cli) or `reviewSnapshots: true` (programmatically) option.
 
-If you want to regenerate a snapshot, you must delete the snapshot file from the filesystem manually and run again the snapshot confirmation process. You can also use the `--snapshots-regenerate` (cli) or `regenerateSnapshots: true` (programmatically) option. It will regenerate all the ran tests with unvalidated snapshots that must be confirmed again.
+If you want to regenerate a snapshot, you must delete the snapshot file from the filesystem manually and run again the snapshot confirmation process. You can also use the `--regenerate-snapshots` (cli) or `regenerateSnapshots: true` (programmatically) option. It will regenerate all the ran tests with unvalidated snapshots that must be confirmed again.
 
 Snapshots are asserted using the [deepStrictEqual()](https://nodejs.org/api/assert.html#assertdeepstrictequalactual-expected-message) method.
 
