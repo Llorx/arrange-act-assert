@@ -1,20 +1,41 @@
 import * as Path from "path";
+import { spawn } from "child_process";
 import type * as Inspector from "inspector";
 
 import test, { monad } from "arrange-act-assert";
 
 import { CoverageEntry, processCoverage } from "./processCoverage";
-import * as Utils from "../utils/utils";
+
+function getCoverage(msg:any):Inspector.Profiler.ScriptCoverage[] {
+    return (msg && msg.type === "aaa-test-coverage" && msg.coverage) || null;
+}
 
 // TODO: Add more tests for edge cases
 test.describe("processCoverage", test => {
     const testJsFile = "coverage.mock.file.js";
     const testTsFile = "coverage.mock.file.ts";
-    function runCoverageFile():Promise<Inspector.Profiler.ScriptCoverage[]> {
+    function runCoverageFile() {
+        // Isolate tests because of https://github.com/nodejs/node/issues/51251#issuecomment-2597254853
         const testFile = Path.resolve(Path.join(__dirname, "..", "..", "precompiled-test-utils", "coverage", "lib", "coverage.mock.run.js"));
-        Utils.clearModuleCache(testFile);
-        const { run } = require(testFile);
-        return run();
+        return new Promise<Inspector.Profiler.ScriptCoverage[]>((resolve, reject) => {
+            const child = spawn(process.execPath, [testFile], {
+                stdio: ["ignore", "ignore", "ignore", "ipc"]
+            });
+            let coverage:Inspector.Profiler.ScriptCoverage[]|null = null;
+            child.on("message", msg => {
+                coverage = getCoverage(msg);
+            });
+            child.on("error", reject);
+            child.on("exit", (code) => {
+                if (code !== 0) {
+                    reject(new Error(`Child process exit with code ${code}`));
+                } else if (coverage == null) {
+                    reject(new Error("Coverage not received"));
+                } else {
+                    resolve(coverage);
+                }
+            });
+        });
     }
     function findCoverageFile(entries:CoverageEntry[], file:string) {
         const mockFile = entries.find(entry => entry.file.includes(file));
@@ -31,7 +52,7 @@ test.describe("processCoverage", test => {
         ACT(res) {
             return processCoverage(res, {
                 branches: true,
-                exclude: [],
+                exclude: [/^((?!coverage\.mock\.file).)*$/],
                 excludeFiles: [],
                 sourceMaps: false
             });
@@ -56,7 +77,7 @@ test.describe("processCoverage", test => {
         ACT(res) {
             return processCoverage(res, {
                 branches: true,
-                exclude: [],
+                exclude: [/^((?!coverage\.mock\.file).)*$/],
                 excludeFiles: [],
                 sourceMaps: true
             });

@@ -9,7 +9,11 @@ const sourcemapMatch = /\/[*/]#\s+sourceMappingURL=(?<sourceMappingURL>[^\s]+)/g
 const protocolMatch = /^(?<protocol>[a-zA-Z]+)\:(?<data>[\s\S]+)/;
 
 function extractSourceMapURLMagicComment(content:string) {
-    const match = content.match(sourcemapMatch)?.at(-1);
+    const matches = content.match(sourcemapMatch);
+    if (!matches) {
+        return null;
+    }
+    const match = matches[matches.length - 1];
     if (match == null) {
         return null;
     }

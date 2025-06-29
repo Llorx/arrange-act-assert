@@ -19,15 +19,15 @@ export type After = <T>(data:T, cb:(data:T)=>void) => T;
 export type DescribeCallback = (test:TestFunction, after:After)=>unknown;
 export type TestInterface<ARR, ACT, ASS> = {
     ARRANGE?(after:After):ARR;
-    ACT?(arrange:Awaited<NoInfer<ARR>>, after:After):ACT;
-    ASSERT?(act:Awaited<NoInfer<ACT>>, arrange:Awaited<NoInfer<ARR>>, after:After):ASS;
-    ASSERTS?:AssertSnapshotObject<NoInfer<ARR>, NoInfer<ACT>>;
-    SNAPSHOTS?:AssertSnapshotObject<NoInfer<ARR>, NoInfer<ACT>>;
+    ACT?(arrange:Awaited<ARR>, after:After):ACT;
+    ASSERT?(act:Awaited<ACT>, arrange:Awaited<ARR>, after:After):ASS;
+    ASSERTS?:AssertSnapshotObject<ARR, ACT>;
+    SNAPSHOTS?:AssertSnapshotObject<ARR, ACT>;
 } | {
     ARRANGE?(after:After):ARR;
-    SNAPSHOT?(arrange:Awaited<NoInfer<ARR>>, after:After):ACT;
-    ASSERT?(act:Awaited<NoInfer<ACT>>, arrange:Awaited<NoInfer<ARR>>, after:After):ASS;
-    ASSERTS?:AssertSnapshotObject<NoInfer<ARR>, NoInfer<ACT>>;
+    SNAPSHOT?(arrange:Awaited<ARR>, after:After):ACT;
+    ASSERT?(act:Awaited<ACT>, arrange:Awaited<ARR>, after:After):ASS;
+    ASSERTS?:AssertSnapshotObject<ARR, ACT>;
 };
 
 export type TestFunction = {
@@ -65,8 +65,11 @@ export type TestOptions = {
     coverage?:boolean;
     coverageExclude?:RegExp[];
     coverageNoBranches?:boolean;
-    disableSourceMaps?:boolean;
+    coverageNoSourceMaps?:boolean;
 };
+
+export type { Test };
+
 type FullTestOptions = {
     description:string;
     descriptionPath:string[];
@@ -472,7 +475,7 @@ class Root extends Test {
             coverage: false,
             coverageExclude: [],
             coverageNoBranches: false,
-            disableSourceMaps: false,
+            coverageNoSourceMaps: false,
             ...options
         });
     }
@@ -623,7 +626,7 @@ function getRoot() {
                         excludeFiles: Array.from(files),
                         exclude: testOptions.coverageExclude || [/\/node_modules\//i],
                         branches: !testOptions.coverageNoBranches,
-                        sourceMaps: !testOptions.disableSourceMaps
+                        sourceMaps: !testOptions.coverageNoSourceMaps
                     });
                 }
                 root = null; // Reset root, just in case another test is added in this process, so root restarts again
@@ -657,4 +660,3 @@ export function newRoot(options?:TestOptions) {
 }
 
 export default buildTestFunction(null);
-export type { Test };

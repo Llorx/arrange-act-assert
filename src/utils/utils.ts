@@ -168,9 +168,9 @@ export function getTestOptions(argv = process.argv) {
     if (coverage) {
         options.coverage = true;
     }
-    const disableSourceMaps = args.get("disable-source-maps");
-    if (disableSourceMaps) {
-        options.disableSourceMaps = true;
+    const coverageNoSourceMaps = args.get("coverage-no-source-maps");
+    if (coverageNoSourceMaps) {
+        options.coverageNoSourceMaps = true;
     }
     return options;
 }

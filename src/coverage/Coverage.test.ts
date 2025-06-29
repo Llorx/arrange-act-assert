@@ -21,8 +21,8 @@ test.describe("Coverage", test => {
         return a + b;
     }
     test("should take function coverage", {
-        async ARRANGE(after) {
-            const coverage = after(new Coverage(), coverage => coverage.stop());
+        async ARRANGE() {
+            const coverage = new Coverage();
             await coverage.start();
             return coverage;
         },
@@ -32,7 +32,8 @@ test.describe("Coverage", test => {
         },
         ASSERT(res) {
             const file = findCoverageFile(res, __filename);
-            Assert.strictEqual(file.functions.find(entry => entry.functionName === testFunction.name)?.ranges[0]?.count, 1);
+            const func = file.functions.find(entry => entry.functionName === testFunction.name);
+            Assert.strictEqual(func && func.ranges[0] && func.ranges[0].count, 1);
         }
     });
 });

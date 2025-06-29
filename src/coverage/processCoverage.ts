@@ -37,6 +37,9 @@ function findOrigin(sourceMap:Module.SourceMap, line:number, column:number) {
     }
     return entry;
 }
+const ignoreRegex = /\/\* coverage ignore next (?<lines>\d+ )?\*\//;
+const enableRegex = /\/\* coverage (?<state>enable|disable) \*\//;
+
 export type CoverageLine = {
     length:number;
     ranges:LineRange[];
@@ -70,7 +73,7 @@ class FileManager {
         this._files.set(file, data = {
             deleted: false,
             error: null,
-            sourceMap: sourceMap ? cache?.sourceMap || await getSourceMap(Path.dirname(file), code) : null,
+            sourceMap: sourceMap ? ((cache && cache.sourceMap) || await getSourceMap(Path.dirname(file), code)) : null,
             lines: []
         });
         if (!cache) {
@@ -81,22 +84,28 @@ class FileManager {
         } else if (!cache.sourceMap && data.sourceMap) {
             cache.sourceMap = data.sourceMap;
         }
-        let i = 0;
-        let prevLine = 0;
-        while (i < code.length) {
-            if (code[i] === "\n") {
-                let lineEnd = i;
-                if (code[i - 1] === "\r") {
-                    lineEnd--;
-                }
-                data.lines.push(new Line(prevLine, lineEnd));
-                prevLine = ++i;
-            } else {
-                i++;
+        let pos = 0;
+        let ignoreLines = 0;
+        const lines = code.split(/(?<=\r?\n)/); // Positive lookbehind to keep the \r\n in the string
+        for (const line of lines) {
+            let lineEnd = pos + line.length;
+            if (line[line.length - 1] === "\n") {
+                lineEnd--; // Remove the \n
             }
-        }
-        if (prevLine < code.length) {
-            data.lines.push(new Line(prevLine, code.length));
+            if (line[line.length - 2] === "\r") {
+                lineEnd--; // Remove the \r
+            }
+            data.lines.push(new Line(pos, lineEnd, ignoreLines > 0 ? !!ignoreLines-- : false));
+            pos += line.length;
+            const ignoreMatch = ignoreRegex.exec(line);
+            if (ignoreMatch) {
+                const lines = ignoreMatch.groups && ignoreMatch.groups.lines;
+                ignoreLines = lines != null ? Number(lines) : 1;
+            }
+            const enableMatch = enableRegex.exec(line);
+            if (enableMatch) {
+                ignoreLines = (enableMatch.groups && enableMatch.groups.state === "disable") ? Infinity : 0;
+            }
         }
         return data;
     }
@@ -143,6 +152,7 @@ export async function processCoverage(coverage:Inspector.Profiler.ScriptCoverage
             if (entry.url.startsWith("file:")) {
                 const file = Url.fileURLToPath(entry.url);
                 if (!options.excludeFiles.includes(file) && !testRegex(file, options.exclude)) {
+                    console.log(file, JSON.stringify(entry, null, 4))
                     const fileState = await fileManager.getState(file, true);
                     if (fileState) {
                         for (const func of entry.functions) {

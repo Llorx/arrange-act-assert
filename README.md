@@ -161,10 +161,10 @@ The `aaa` cli command accepts these options:
 - `--exclude-files REGEX`: The regex to apply to each full file path found to exclude it. Defaults to `\/node_modules\/i`.
 - `--spawn-args-prefix PREFIX`: It will launch the test files with this prefix in the arguments. You can set multiple prefixes by setting this option multiple times.
 - `--clear-module-cache`: When you run test files with `parallel` set to `0` (same process), this flag will delete the module cache so when the TestSuite requires a test file, NodeJS will re-require and re-evaluate the file and its dependencies instead of returning the cache, just in case that you need everything clean.
-- `--coverage`: Take coverage metrics.
-- `--coverage-exclude REGEX`: Regex to apply to each full file path found to exclude it. Defaults to `\/node_modules\/i`.
-- `--coverage-no-branches`: Do not show uncovered branches.
-- `--disable-source-maps`: When running a full test suite, source maps are enabled by default. Disable them with this option.
+- `--coverage`: Take coverage metrics. More info in the **[Coverage](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#coverage)** section.
+- `--coverage-exclude REGEX`: Regex to apply to each full file path found to exclude it. Defaults to `\/node_modules\/i`. More info in the **[Coverage](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#coverage)** section.
+- `--coverage-no-branches`: Do not show uncovered branches. More info in the **[Coverage](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#coverage)** section.
+- `--coverage-no-source-maps`: When running a full test suite, source maps are enabled by default. Disable them with this option.
 - `--snapshots-folder`/`--folder-snapshots`: Folder to place the snapshot files. Defaults to `./snapshots`. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
 - `--snapshots-confirm`/`--confirm-snapshots`: Confirm that the new snapshots created in the folder-snapshots are valid. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
 - `--snapshots-review`/`--review-snapshots`: Show all the snapshot outputs to check their values. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
@@ -205,7 +205,7 @@ type TestSuiteOptions = {
     coverage:boolean; // Take coverage metrics
     coverageExclude:RegExp[]; // Same logic as the "--coverage-exclude" option
     coverageNoBranches:boolean; // Same logic as the "--coverage-no-branches" option
-    disableSourceMaps:boolean; // Same logic as the "--disable-source-maps" option
+    coverageNoSourceMaps:boolean; // Same logic as the "--coverage-no-source-maps" option
     snapshotsFolder:string; // Folder to place the snapshots. Defaults to "./snapshots"
     confirmSnapshots:boolean; // To confirm the new snapshots, as stated in the "Snapshots" section
     reviewSnapshots:boolean; // To review all the snapshots, as stated in the "Snapshots" section
@@ -316,4 +316,52 @@ test("Should return multiple thangs", {
         "assert 2"(res) {...}
     }
 });
+```
+
+# Coverage
+Coverages have sourcemaps enabled, branching enabled and exclude test files by default.
+
+It also exclude `node_modules` by default. You can use the `--coverage-exclude REGEX` option to change the default exclusion regex. You can use multiple `--coverage-exclude REGEX` options.
+
+To disable sourcemaps, you can use the `-coverage-no-source-maps` option.
+
+To disable branching output, you can use the `-coverage-no-branches` option.
+
+To run a coverage test, just add the `--coverage` argument, like so:
+```ts
+node myFile.test.js --coverage
+npx aaa --coverage
+npm test -- --coverage
+```
+
+You can ignore lines from the coverage file by using these comments:
+```ts
+/* coverage ignore next */ // This will ignore the next line (but not the line having this comment)
+/* coverage ignore next 2*/ // This will ignore the next 2 lines (but not the line having this comment)
+/* coverage disable */ // This will start ignoring all lines after this one (but not the line having this comment)
+/* coverage enable */ // This will stop ignoring lines after this one
+```
+For example:
+```ts
+export function test(data:"a"|"b"|"c") {
+    let res = 0;
+    switch (data) {
+        case "a": {
+            res = 1;
+            break;
+        }
+        case "b": {
+            res = 2;
+            break;
+        }
+        case "c": {
+            res = 3;
+            break;
+        }
+        default: { /* coverage ignore next 2 */
+            throw new Error("Unreachable code") as typeof data as never; // Type-ensure that you do not forget any switch case
+        }
+    }
+    return res;
+}
 ```

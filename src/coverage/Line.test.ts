@@ -4,7 +4,7 @@ import { Line } from "./Line";
 
 test.describe("Line", test => {
     function newLine(...ranges:[start:number, end:number, count:number][]) {
-        const line = new Line(0, 100);
+        const line = new Line(0, 100, false);
         for (const range of ranges) {
             line.count(...range);
         }
@@ -16,6 +16,24 @@ test.describe("Line", test => {
         },
         SNAPSHOT(line) {
             line.count(10, 20, 1);
+            return line.getRanges(true);
+        }
+    });
+    test("should get full line if ignored", {
+        ARRANGE() {
+            return new Line(0, 100, true);
+        },
+        SNAPSHOT(line) {
+            return line.getRanges(true);
+        }
+    });
+    test("should get full line if partially counted but ignored", {
+        ARRANGE() {
+            const line = new Line(0, 100, true);
+            line.count(10, 20, 1);
+            return line
+        },
+        SNAPSHOT(line) {
             return line.getRanges(true);
         }
     });

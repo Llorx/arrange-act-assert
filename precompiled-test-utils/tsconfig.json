@@ -7,6 +7,7 @@
         "noImplicitOverride": true,
         "noUncheckedIndexedAccess": true,
         "noUnusedLocals": true,
+        "removeComments": false,
         "noUnusedParameters": true,
         "strict": true,
         "inlineSourceMap": true,

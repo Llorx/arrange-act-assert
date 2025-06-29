@@ -10,10 +10,17 @@ test.describe("getSourceMap", test => {
     function coverageJson() {
         return '{"version":3,"file":"coverage.mock.file2.js","sourceRoot":"","sources":["../src/coverage.mock.file.ts"],"names":[],"mappings":";;;AACA,oBAEC;AACD,sBAEC;AANY,QAAA,IAAI,GAAG,UAAU,CAAC;AAC/B,SAAgB,IAAI,CAAC,CAAQ,EAAE,CAAQ;IACnC,OAAO,CAAC,GAAG,CAAC,CAAC;AACjB,CAAC;AACD,SAAgB,KAAK,CAAC,CAAQ,EAAE,CAAQ;IACpC,OAAO,CAAC,GAAG,CAAC,CAAC;AACjB,CAAC"}';
     }
-    function coverage() {
-        const res = JSON.parse(coverageJson()) as Module.SourceMapPayload;
-        res.file = Path.resolve(__dirname, res.file);
+    function coverageJsonSourceRoot() {
+        return '{"version":3,"file":"coverage.mock.file2.js","sourceRoot":'+JSON.stringify(__dirname)+',"sources":["../src/coverage.mock.file.ts"],"names":[],"mappings":";;;AACA,oBAEC;AACD,sBAEC;AANY,QAAA,IAAI,GAAG,UAAU,CAAC;AAC/B,SAAgB,IAAI,CAAC,CAAQ,EAAE,CAAQ;IACnC,OAAO,CAAC,GAAG,CAAC,CAAC;AACjB,CAAC;AACD,SAAgB,KAAK,CAAC,CAAQ,EAAE,CAAQ;IACpC,OAAO,CAAC,GAAG,CAAC,CAAC;AACjB,CAAC"}';
+    }
+    function invalidCoverageJson() {
+        return '{"mappings":";;;AACA,oBAEC;AACD,sBAEC;AANY,QAAA,IAAI,GAAG,UAAU,CAAC;AAC/B,SAAgB,IAAI,CAAC,CAAQ,EAAE,CAAQ;IACnC,OAAO,CAAC,GAAG,CAAC,CAAC;AACjB,CAAC;AACD,SAAgB,KAAK,CAAC,CAAQ,EAAE,CAAQ;IACpC,OAAO,CAAC,GAAG,CAAC,CAAC;AACjB,CAAC"}';
+    }
+    function coverage(folder = __dirname, coverage = coverageJson()) {
+        const res = JSON.parse(coverage) as Module.SourceMapPayload;
+        res.file = Path.resolve(folder, res.file);
         res.sources = res.sources.map(file => Path.resolve(__dirname, file));
+        res.sourceRoot = "";
         return res;
     }
     function newBase64SourcemapData(format = "application/json;base64", coverage = Buffer.from(coverageJson()).toString("base64")) {
@@ -43,6 +50,25 @@ test.describe("getSourceMap", test => {
             "//# sourceMappingURL=https://my.test.file"
         ].join("\n");
     }
+    test("should not return sourcemap when sourcemap is not found", {
+        ACT() {
+            return getSourceMap(__dirname, `fghsdfhsdfhsdfhsdh`);
+        },
+        ASSERT(res) {
+            Assert.deepStrictEqual(res, null);
+        }
+    });
+    test("should not return sourcemap when sourcemap is invalid", {
+        ARRANGE() {
+            return newBase64SourcemapData("application/json", invalidCoverageJson());
+        },
+        ACT(code) {
+            return getSourceMap(__dirname, code);
+        },
+        ASSERT(res) {
+            Assert.deepStrictEqual(res, null);
+        }
+    });
     test.describe("sourcemap ok", test => {
         test("should process base64", {
             ARRANGE() {
@@ -121,6 +147,17 @@ test.describe("getSourceMap", test => {
             },
             ASSERT(res) {
                 Assert.deepStrictEqual(res, coverage());
+            }
+        });
+        test("should process sourceRoot", {
+            ARRANGE() {
+                return newBase64SourcemapData("application/json", coverageJsonSourceRoot());
+            },
+            ACT(code) {
+                return getSourceMap("/do_not_use/", code);
+            },
+            ASSERT(res) {
+                Assert.deepStrictEqual(res, coverage("/do_not_use/", coverageJsonSourceRoot()));
             }
         });
     });

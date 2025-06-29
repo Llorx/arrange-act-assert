@@ -13,7 +13,7 @@ type LineBlock = {
 export class Line {
     private _blocks:LineBlock|null = null;
     readonly length;
-    constructor(readonly start:number, readonly end:number) {
+    constructor(readonly start:number, readonly end:number, readonly ignored:boolean) {
         this.length = end - start;
     }
     private _prepend(block:LineBlock, start:number, end:number, count:number) {
@@ -147,26 +147,34 @@ export class Line {
     }
     getRanges(partial:boolean) {
         const ranges:LineRange[] = [];
-        let nextBlock = this._blocks;
-        let lastRange:LineRange|null = null;
         let nextOffset = 0;
-        while (nextBlock) {
-            if (lastRange && lastRange.end === nextBlock.start && lastRange.count === nextBlock.count) {
-                lastRange.end = nextBlock.end;
-                if (lastRange.end !== nextOffset) {
-                    nextOffset = lastRange.end;
+        if (this.ignored) {
+            ranges.push({
+                start: 0,
+                end: nextOffset = this.length,
+                count: 1
+            });
+        } else {
+            let nextBlock = this._blocks;
+            let lastRange:LineRange|null = null;
+            while (nextBlock) {
+                if (lastRange && lastRange.end === nextBlock.start && lastRange.count === nextBlock.count) {
+                    lastRange.end = nextBlock.end;
+                    if (lastRange.end !== nextOffset) {
+                        nextOffset = lastRange.end;
+                    }
+                } else {
+                    if (nextBlock.start !== nextOffset) {
+                        nextOffset = nextBlock.end;
+                    }
+                    ranges.push(lastRange = {
+                        start: nextBlock.start,
+                        end: nextBlock.end,
+                        count: nextBlock.count
+                    });
                 }
-            } else {
-                if (nextBlock.start !== nextOffset) {
-                    nextOffset = nextBlock.end;
-                }
-                ranges.push(lastRange = {
-                    start: nextBlock.start,
-                    end: nextBlock.end,
-                    count: nextBlock.count
-                });
+                nextBlock = nextBlock.next;
             }
-            nextBlock = nextBlock.next;
         }
         if (partial || nextOffset === this.length) {
             return ranges;

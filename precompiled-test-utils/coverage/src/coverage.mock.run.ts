@@ -1,12 +1,15 @@
-const { Coverage } = require("../../../lib/coverage/Coverage");
-import * as Mock from "./coverage.mock.file";
+const { Coverage } = require("../../../lib/coverage/Coverage"); // Avoid compilation of this file
 export async function run() {
     const coverage = new Coverage();
     await coverage.start();
-    Mock.pepe(1, 2);
+    require("./coverage.mock.file").pepe(1, 2);
     try {
-        return await coverage.takeCoverage();
+        process.send && process.send({
+            type: "aaa-test-coverage",
+            coverage: await coverage.takeCoverage()
+        });
     } finally {
         await coverage.stop();
     }
 }
+run();

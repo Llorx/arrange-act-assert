@@ -56,17 +56,20 @@ export class TestSuite {
         }
         const result = await this._run();
         await this._root.end();
-        if (this.options.coverage && this.options.parallel === 0) {
-            this._root.processMessage("", {
-                type: MessageType.COVERAGE,
-                coverage: await coverage.takeCoverage()
-            });
+        if (this.options.coverage) {
+            if (this.options.parallel === 0) {
+                this._root.processMessage("", {
+                    type: MessageType.COVERAGE,
+                    coverage: await coverage.takeCoverage()
+                });
+            }
+            await coverage.stop();
         }
         this.options.formatter.formatSummary && await this.options.formatter.formatSummary(this._root.summary, {
             excludeFiles: result.files,
             exclude: this.options.exclude,
             branches: !this.options.coverageNoBranches,
-            sourceMaps: !this.options.disableSourceMaps
+            sourceMaps: !this.options.coverageNoSourceMaps
         });
         for (const error of result.errors) {
             console.error(error);

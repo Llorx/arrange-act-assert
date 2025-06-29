@@ -23,7 +23,7 @@ export function spawnTestFile(path:string, options:SpawnTestFileOptions, cb:(msg
                     reviewSnapshots: options.reviewSnapshots,
                     regenerateSnapshots: options.regenerateSnapshots,
                     coverage: options.coverage,
-                    disableSourceMaps: options.disableSourceMaps
+                    coverageNoSourceMaps: options.coverageNoSourceMaps
                 })
             },
             stdio: ["ignore", "pipe", "pipe", "ipc"],
@@ -41,7 +41,7 @@ export function spawnTestFile(path:string, options:SpawnTestFileOptions, cb:(msg
         testProcess.on("error", reject);
         testProcess.on("close", () => {
             if (testProcess.exitCode != 0) {
-                reject(new Error(`Test file ended with exit code: ${testProcess.exitCode}.\n- Output:\n${Buffer.concat(out).toString()}\n- Error:\n${Buffer.concat(err).toString()}`));
+                reject(new Error(`Test file ended with exit code: ${testProcess.exitCode} and outputs:\n- stderr:\n${Buffer.concat(err).toString()}\n- stdout:\n${Buffer.concat(out).toString()}`));
             } else {
                 resolve();
             }
