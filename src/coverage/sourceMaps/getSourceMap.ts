@@ -14,6 +14,7 @@ function extractSourceMapURLMagicComment(content:string) {
         return null;
     }
     const match = matches[matches.length - 1];
+    /* coverage ignore next 3 */ // If a match happens, it always returns an element. Still I should check for it
     if (match == null) {
         return null;
     }

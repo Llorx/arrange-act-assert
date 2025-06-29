@@ -365,3 +365,26 @@ export function test(data:"a"|"b"|"c") {
     return res;
 }
 ```
+
+The output is something like this:
+![Image](https://github.com/user-attachments/assets/82388d17-794d-4dc2-ace0-c28b433290c4)
+
+`File` and `Lines` columns will show this color output:
+- Red when percentage is `<= 50%`.
+- Yellow when percentage is `<= 90%`.
+- Green when percentage is `> 90%`.
+
+`Uncovered lines` column will show a list of uncovered lines with this color output:
+- Red when the full line (or range of lines) are not covered.
+- Yellow when the line is partially covered.
+- White between brackets for the column ranges of the partial line covered.
+
+For example, for this line:
+```ts
+true ? 1 : 2;
+```
+The `: 2` of the ternary is never covered. You should expect an `Uncovered lines` output like this:
+```ts
+1:[10-12]
+```
+It means that the line 1 is partially uncovered, and specifically the characters uncovered are from the position 10 to 12 for that line, which corresponds to `: 2`.
