@@ -152,7 +152,6 @@ export async function processCoverage(coverage:Inspector.Profiler.ScriptCoverage
             if (entry.url.startsWith("file:")) {
                 const file = Url.fileURLToPath(entry.url);
                 if (!options.excludeFiles.includes(file) && !testRegex(file, options.exclude)) {
-                    console.log(file, JSON.stringify(entry, null, 4))
                     const fileState = await fileManager.getState(file, true);
                     if (fileState) {
                         for (const func of entry.functions) {
