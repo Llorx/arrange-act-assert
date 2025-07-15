@@ -311,13 +311,14 @@ class Test<ARR = any, ACT = any, ASS = any> {
                         type: MessageType.END,
                         error: Util.format(assertResult.error)
                     });
-                    throw assertResult.error;
+                } else {
+                    this._context.send({
+                        id: id,
+                        type: MessageType.END
+                    });
                 }
-                this._context.send({
-                    id: id,
-                    type: MessageType.END
-                });
             }
+            return assertResult;
         }
         return functionRunner("ASSERT", null, []); // Always return a RunMonad
     }
