@@ -65,15 +65,15 @@ export class TestSuite {
             }
             await coverage.stop();
         }
+        for (const error of result.errors) {
+            console.error(error);
+        }
         this.options.formatter.formatSummary && await this.options.formatter.formatSummary(this._root.summary, {
             excludeFiles: result.files,
             exclude: this.options.exclude,
             branches: !this.options.coverageNoBranches,
             sourceMaps: !this.options.coverageNoSourceMaps
         });
-        for (const error of result.errors) {
-            console.error(error);
-        }
         return {
             files: result.files,
             runErrors: result.errors,
