@@ -119,10 +119,10 @@ class Test<ARR = any, ACT = any, ASS = any> {
                 }
             } finally {
                 try {
-                    await this._runAfters();
+                    await this.end();
                 } finally {
                     try {
-                        await this.end();
+                        await this._runAfters();
                     } finally {
                         await this._runAfterTests();
                     }
