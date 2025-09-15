@@ -35,7 +35,7 @@ function monadify<T>(res:MonadObject<T>):Monad<T> {
         should: {
             ok(value) {
                 if ("ok" in res) {
-                    Assert.strictEqual(res.ok, value);
+                    Assert.deepStrictEqual(res.ok, value);
                 } else {
                     throw new Error(`Monad has error: ${res.error}`);
                 }

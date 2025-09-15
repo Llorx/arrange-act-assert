@@ -41,6 +41,14 @@ test.describe("monad", (test) => {
                     Assert.doesNotThrow(() => res.should.ok(123));
                 }
             });
+            test("should deep assert ok", {
+                ACT() {
+                    return monad(() => ({ok: 123}));
+                },
+                ASSERT(res) {
+                    Assert.doesNotThrow(() => res.should.ok({ok: 123}));
+                }
+            });
             test("should error if error when ok", {
                 ACT() {
                     return monad(() => {
