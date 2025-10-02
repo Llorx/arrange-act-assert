@@ -1,4 +1,5 @@
 import * as OS from "os";
+import * as Path from "path";
 
 import { SpawnTestFileOptions } from "../spawnTestFile/spawnTestFile";
 import { parallelize } from "../parallelize/parallelize";
@@ -82,7 +83,7 @@ export class TestSuite {
         };
     }
     async _run() {
-        const files = await this.context.getFiles(this.options.folder, this.options);
+        const files = await this.context.getFiles(Path.resolve(process.cwd(), this.options.folder), this.options);
         if (this.options.parallel === 0) {
             const errors:unknown[] = [];
             for (const file of files) {
