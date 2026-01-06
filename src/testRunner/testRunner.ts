@@ -85,6 +85,22 @@ type Snapshot = {
 };
 const VALID_NAME_REGEX = /[^\w\-. ]/g;
 
+function formatData(data:unknown) {
+    const type = typeof data;
+    let msg = `<${type}>\n`;
+    if (type === "object") {
+        msg += Util.inspect(data, {
+            depth: Infinity,
+            colors: false,
+            maxArrayLength: Infinity,
+            maxStringLength: Infinity
+        });
+    } else {
+        msg += data;
+    }
+    return msg;
+}
+
 let ids = 0;
 class Test<ARR = any, ACT = any, ASS = any> {
     private _promise = resolvablePromise();
@@ -246,7 +262,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
         const hash = Crypto.createHash("shake128", { outputLength: 4 }).update(path.join("·")).digest("hex");
         const file = `${Path.join(this._options.snapshotsFolder, ...cleanPath).substring(0, 246)}.${hash}`; // Maximum 255 characters (246 + dot + 4 hex bytes (8))
         if (this._options.reviewSnapshots) {
-            throw new Error(`Review snapshot: ${file}\nValue: ${Util.inspect(testData, false, Infinity, false)}`);
+            throw new Error(`Review snapshot: ${file}\n${formatData(testData)}`);
         }
         let fileData;
         try {
@@ -274,7 +290,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
                         await this._context.writeFile(file, V8.serialize(snapshot));
                     }
                 }
-                throw new Error(`Confirm snapshot: ${file}\nValue: ${Util.inspect(testData, false, Infinity, false)}`);
+                throw new Error(`Confirm snapshot: ${file}\n${formatData(testData)}`);
             }
         } else if (!this._options.confirmSnapshots) {
             const snapshot:Snapshot = {
@@ -282,7 +298,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
                 data: testData
             };
             await this._context.writeFile(file, V8.serialize(snapshot));
-            throw new Error(`Confirm snapshot: ${file}\nValue: ${Util.inspect(testData, false, Infinity, false)}`);
+            throw new Error(`Confirm snapshot: ${file}\n${formatData(testData)}`);
         } else {
             throw new Error("No snapshot file found. First run without confirmation to validate the snapshots");
         }
