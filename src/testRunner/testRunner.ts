@@ -625,28 +625,29 @@ function getRoot() {
         return root;
     } else {
         const myRoot = newRoot(testOptions);
+        myRoot.after(async () => {
+            if (testOptions.coverage) {
+                myRoot.processMessage("", {
+                    type: MessageType.COVERAGE,
+                    coverage: await coverage.takeCoverage()
+                });
+            }
+            if (myRoot.formatter && myRoot.formatter.formatSummary) {
+                myRoot.formatter.formatSummary(myRoot.summary, {
+                    excludeFiles: Array.from(files),
+                    exclude: testOptions.coverageExclude || [/\/node_modules\//i],
+                    branches: !testOptions.coverageNoBranches,
+                    sourceMaps: !testOptions.coverageNoSourceMaps
+                });
+            }
+            root = null; // Reset root, just in case another test is added in this process, so root restarts again
+        });
         setImmediate(() => {
             myRoot.run().catch((e) => {
                 process.exitCode = 1111;
                 if (!myRoot.formatter || !myRoot.formatter.formatSummary) {
                     console.error(e);
                 }
-            }).finally(async () => {
-                if (testOptions.coverage) {
-                    myRoot.processMessage("", {
-                        type: MessageType.COVERAGE,
-                        coverage: await coverage.takeCoverage()
-                    });
-                }
-                if (myRoot.formatter && myRoot.formatter.formatSummary) {
-                    myRoot.formatter.formatSummary(myRoot.summary, {
-                        excludeFiles: Array.from(files),
-                        exclude: testOptions.coverageExclude || [/\/node_modules\//i],
-                        branches: !testOptions.coverageNoBranches,
-                        sourceMaps: !testOptions.coverageNoSourceMaps
-                    });
-                }
-                root = null; // Reset root, just in case another test is added in this process, so root restarts again
             });
         });
         return myRoot;
