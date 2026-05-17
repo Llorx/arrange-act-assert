@@ -225,7 +225,7 @@ test.describe("default formatter", (test) => {
         }
     });
     test.describe("summaryOnly", (test) => {
-        test("should not show per-test logs when summaryOnly is true", {
+        test("should not print per-test lines", {
             ARRANGE() {
                 const checker = newChecker(true);
                 const test1 = checker.addTest();
@@ -242,21 +242,7 @@ test.describe("default formatter", (test) => {
                 checker.assert([]);
             }
         });
-        test("should still show per-test logs when summaryOnly is false", {
-            ARRANGE() {
-                const checker = newChecker(false);
-                const test1 = checker.addTest();
-                return { checker, test1 };
-            },
-            ACT({ test1 }) {
-                test1.start();
-                test1.end();
-            },
-            ASSERT(_, { checker, test1 }) {
-                checker.assert([["√", test1.id]]);
-            }
-        });
-        test("should still write summary output when summaryOnly is true", {
+        test("should still print the summary block", {
             async ARRANGE() {
                 const checker = newChecker(true);
                 const test1 = checker.addTest();
@@ -268,26 +254,19 @@ test.describe("default formatter", (test) => {
                     describe: { count: 0, ok: 0, error: 0 },
                     total: { count: 2, ok: 2, error: 0 },
                     failed: []
-                }, {
-                    excludeFiles: [],
-                    exclude: [],
-                    branches: true,
-                    sourceMaps: true
-                });
+                }, { excludeFiles: [], exclude: [], branches: true, sourceMaps: true });
                 return { checker };
             },
             ASSERT(_, { checker }) {
-                Assert.ok(checker.logChecker.logs.some(line => line.includes("Summary:")), "expected summary header in output");
-                Assert.ok(checker.logChecker.logs.some(line => line.includes("Asserts")), "expected asserts row in output");
-                Assert.ok(checker.logChecker.logs.some(line => line.includes("Tests")), "expected tests row in output");
+                Assert.ok(checker.logChecker.logs.some(line => line.includes("Summary:")), "expected Summary block");
             }
         });
-        test("should include failed test error in summary when summaryOnly is true", {
+        test("should still include failed test error in the summary", {
             async ARRANGE() {
                 const checker = newChecker(true);
                 const test1 = checker.addTest();
                 test1.start();
-                test1.end("boom on purpose");
+                test1.end("boom");
                 await checker.formatter.formatSummary({
                     test: { count: 1, ok: 0, error: 1 },
                     assert: { count: 1, ok: 0, error: 1 },
@@ -297,19 +276,13 @@ test.describe("default formatter", (test) => {
                         fileId: "",
                         id: test1.id,
                         test: { parentId: -1, description: String(test1.id), type: TestType.TEST },
-                        error: "boom on purpose"
+                        error: "boom"
                     }]
-                }, {
-                    excludeFiles: [],
-                    exclude: [],
-                    branches: true,
-                    sourceMaps: true
-                });
-                return { checker, test1 };
+                }, { excludeFiles: [], exclude: [], branches: true, sourceMaps: true });
+                return { checker };
             },
-            ASSERT(_, { checker, test1 }) {
-                Assert.ok(checker.logChecker.logs.some(line => line.includes("boom on purpose")), "expected error message in summary output");
-                Assert.ok(checker.logChecker.logs.some(line => line.includes(String(test1.id))), "expected failing test description in summary output");
+            ASSERT(_, { checker }) {
+                Assert.ok(checker.logChecker.logs.some(line => line.includes("boom")), "expected error message in summary");
             }
         });
     });

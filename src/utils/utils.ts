@@ -127,15 +127,13 @@ export function getTestSuiteOptions(argv = process.argv):Partial<TestSuiteOption
     if (clearModuleCache) {
         options.clearModuleCache = true;
     }
+    const summary = args.get("summary");
+    if (summary) {
+        options.summaryOnly = true;
+    }
     return {
         ...options,
         ...getTestOptions(argv)
-    };
-}
-export function getCliOptions(argv = process.argv) {
-    const args = processArgs(argv);
-    return {
-        summary: args.has("summary")
     };
 }
 export function getTestOptions(argv = process.argv) {

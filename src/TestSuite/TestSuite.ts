@@ -15,6 +15,7 @@ export type TestSuiteOptions = {
     parallel:number;
     folder:string;
     formatter:Formatter;
+    summaryOnly:boolean;
 } & ReadDirOptions & SpawnTestFileOptions & RunTestFileOptions & TestOptions;
 
 export type TestResult = {
@@ -31,6 +32,7 @@ const DEFAULT_OPTIONS:TestSuiteOptions = {
     exclude: [/\/node_modules\//i],
     prefix: [],
     clearModuleCache: false,
+    summaryOnly: false,
     formatter: new DefaultFormatter()
 };
 export type TestSuiteContext = {
@@ -45,6 +47,9 @@ export class TestSuite {
             ...Utils.getTestSuiteOptions(),
             ...options
         };
+        if (this.options.summaryOnly && !options.formatter) {
+            this.options.formatter = new DefaultFormatter(undefined, true);
+        }
         this._root = newRoot(this.options);
         if (!Number.isFinite(this.options.parallel) || this.options.parallel < 0) { // TODO: test Number.isFinite
             throw new Error("Invalid parallel option. Must be >= 0");

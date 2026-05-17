@@ -3,7 +3,7 @@ import * as Util from "util";
 import * as Path from "path";
 
 import { monad, test } from "arrange-act-assert";
-import { resolvablePromise, clearModuleCache, getTestSuiteOptions, getTestOptions, getCliOptions, getCallSites, getCommonBasePath } from "./utils";
+import { resolvablePromise, clearModuleCache, getTestSuiteOptions, getTestOptions, getCallSites, getCommonBasePath } from "./utils";
 import { mockFiles } from "../test_folder_mock";
 
 test.describe("utils", (test) => {
@@ -182,32 +182,6 @@ test.describe("utils", (test) => {
                 res.should.error({
                     message: /one --snapshots-folder argument/
                 });
-            }
-        });
-    });
-    test.describe("getCliOptions", (test) => {
-        test("should default summary to false when --summary is missing", {
-            ACT() {
-                return getCliOptions(["--folder", "test"]);
-            },
-            ASSERT(res) {
-                Assert.strictEqual(res.summary, false);
-            }
-        });
-        test("should set summary to true when --summary is present", {
-            ACT() {
-                return getCliOptions(["--summary"]);
-            },
-            ASSERT(res) {
-                Assert.strictEqual(res.summary, true);
-            }
-        });
-        test("should set summary to true when --summary is mixed with other args", {
-            ACT() {
-                return getCliOptions(["--folder", "test", "--summary", "--parallel", "3"]);
-            },
-            ASSERT(res) {
-                Assert.strictEqual(res.summary, true);
             }
         });
     });
