@@ -132,6 +132,12 @@ export function getTestSuiteOptions(argv = process.argv):Partial<TestSuiteOption
         ...getTestOptions(argv)
     };
 }
+export function getCliOptions(argv = process.argv) {
+    const args = processArgs(argv);
+    return {
+        summary: args.has("summary")
+    };
+}
 export function getTestOptions(argv = process.argv) {
     const args = processArgs(argv);
     const options:Partial<TestOptions> = {};

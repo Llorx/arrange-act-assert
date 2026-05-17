@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 import { TestSuite } from "./TestSuite/TestSuite";
-import { getTestSuiteOptions } from "./utils/utils";
+import { DefaultFormatter } from "./formatters/default";
+import { getCliOptions, getTestSuiteOptions } from "./utils/utils";
 
 const options = getTestSuiteOptions();
+const cliOptions = getCliOptions();
+if (cliOptions.summary) {
+    options.formatter = new DefaultFormatter(undefined, true);
+}
 
 const suite = new TestSuite(options);
 suite.run().then(result => {

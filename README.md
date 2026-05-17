@@ -169,6 +169,7 @@ The `aaa` cli command accepts these options:
 - `--snapshots-confirm`/`--confirm-snapshots`: Confirm that the new snapshots created in the folder-snapshots are valid. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
 - `--snapshots-review`/`--review-snapshots`: Show all the snapshot outputs to check their values. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
 - `--snapshots-regenerate`/`--regenerate-snapshots`: Regenerate all snapshot files with new ones. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
+- `--summary`: Suppress per-test output and only print the final summary (errors and coverage are still included in the summary).
 
 Alternatively, you can import the `TestSuite` and run your tests programatically:
 ```typescript

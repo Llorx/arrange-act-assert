@@ -24,9 +24,9 @@ test.describe("default formatter", (test) => {
             this.logs.splice(0);
         }
     }
-    function newChecker() {
+    function newChecker(summaryOnly = false) {
         const logChecker = new LogChecker();
-        const formatter = new DefaultFormatter((...args) => logChecker.log(...args));
+        const formatter = new DefaultFormatter((...args) => logChecker.log(...args), summaryOnly);
         let ids = 0;
         const ret = {
             addTest(parent = -1) {
@@ -62,7 +62,9 @@ test.describe("default formatter", (test) => {
             },
             assert(...args:Parameters<typeof logChecker.assert>) {
                 return logChecker.assert(...args);
-            }
+            },
+            formatter,
+            logChecker
         };
         return ret;
     }
@@ -221,5 +223,94 @@ test.describe("default formatter", (test) => {
                 ['√', testRoot.id]
             ]);
         }
+    });
+    test.describe("summaryOnly", (test) => {
+        test("should not show per-test logs when summaryOnly is true", {
+            ARRANGE() {
+                const checker = newChecker(true);
+                const test1 = checker.addTest();
+                const test1child = test1.addTest();
+                return { checker, test1, test1child };
+            },
+            ACT({ test1, test1child }) {
+                test1.start();
+                test1child.start();
+                test1child.end();
+                test1.end();
+            },
+            ASSERT(_, { checker }) {
+                checker.assert([]);
+            }
+        });
+        test("should still show per-test logs when summaryOnly is false", {
+            ARRANGE() {
+                const checker = newChecker(false);
+                const test1 = checker.addTest();
+                return { checker, test1 };
+            },
+            ACT({ test1 }) {
+                test1.start();
+                test1.end();
+            },
+            ASSERT(_, { checker, test1 }) {
+                checker.assert([["√", test1.id]]);
+            }
+        });
+        test("should still write summary output when summaryOnly is true", {
+            async ARRANGE() {
+                const checker = newChecker(true);
+                const test1 = checker.addTest();
+                test1.start();
+                test1.end();
+                await checker.formatter.formatSummary({
+                    test: { count: 1, ok: 1, error: 0 },
+                    assert: { count: 1, ok: 1, error: 0 },
+                    describe: { count: 0, ok: 0, error: 0 },
+                    total: { count: 2, ok: 2, error: 0 },
+                    failed: []
+                }, {
+                    excludeFiles: [],
+                    exclude: [],
+                    branches: true,
+                    sourceMaps: true
+                });
+                return { checker };
+            },
+            ASSERT(_, { checker }) {
+                Assert.ok(checker.logChecker.logs.some(line => line.includes("Summary:")), "expected summary header in output");
+                Assert.ok(checker.logChecker.logs.some(line => line.includes("Asserts")), "expected asserts row in output");
+                Assert.ok(checker.logChecker.logs.some(line => line.includes("Tests")), "expected tests row in output");
+            }
+        });
+        test("should include failed test error in summary when summaryOnly is true", {
+            async ARRANGE() {
+                const checker = newChecker(true);
+                const test1 = checker.addTest();
+                test1.start();
+                test1.end("boom on purpose");
+                await checker.formatter.formatSummary({
+                    test: { count: 1, ok: 0, error: 1 },
+                    assert: { count: 1, ok: 0, error: 1 },
+                    describe: { count: 0, ok: 0, error: 0 },
+                    total: { count: 2, ok: 0, error: 2 },
+                    failed: [{
+                        fileId: "",
+                        id: test1.id,
+                        test: { parentId: -1, description: String(test1.id), type: TestType.TEST },
+                        error: "boom on purpose"
+                    }]
+                }, {
+                    excludeFiles: [],
+                    exclude: [],
+                    branches: true,
+                    sourceMaps: true
+                });
+                return { checker, test1 };
+            },
+            ASSERT(_, { checker, test1 }) {
+                Assert.ok(checker.logChecker.logs.some(line => line.includes("boom on purpose")), "expected error message in summary output");
+                Assert.ok(checker.logChecker.logs.some(line => line.includes(String(test1.id))), "expected failing test description in summary output");
+            }
+        });
     });
 });

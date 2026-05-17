@@ -282,8 +282,10 @@ export class DefaultFormatter implements Formatter {
     private readonly _root = new Root(null);
     private readonly tests = new Map<string, TestFormatter>();
     private readonly coverage:Inspector.Profiler.ScriptCoverage[][] = [];
-    constructor(private readonly _out:(msg:string)=>void = console.log) {
-        this._root.show();
+    constructor(private readonly _out:(msg:string)=>void = console.log, summaryOnly = false) {
+        if (!summaryOnly) {
+            this._root.show();
+        }
     }
     private _processCoverageFile(padding:string, file:PathCoverageEntry, rows:CoverageRow[]) {
         const uncoveredLines:string[] = [];
