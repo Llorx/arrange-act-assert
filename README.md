@@ -165,6 +165,7 @@ The `aaa` cli command accepts these options:
 - `--coverage-exclude REGEX`: Regex to apply to each full file path found to exclude it. Defaults to `\/node_modules\/i`. More info in the **[Coverage](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#coverage)** section.
 - `--coverage-no-branches`: Do not show uncovered branches. More info in the **[Coverage](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#coverage)** section.
 - `--coverage-no-source-maps`: When running a full test suite, source maps are enabled by default. Disable them with this option.
+- `--coverage-target NUMBER`: Minimum global coverage percentage required. If the resulting coverage is below this value, the run is reported as failed (non-zero exit code). Values `>= 100` additionally require every branch to be fully covered (no partially covered lines). Setting this option implicitly enables `--coverage`.
 - `--snapshots-folder`/`--folder-snapshots`: Folder to place the snapshot files. Defaults to `./snapshots`. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
 - `--snapshots-confirm`/`--confirm-snapshots`: Confirm that the new snapshots created in the folder-snapshots are valid. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
 - `--snapshots-review`/`--review-snapshots`: Show all the snapshot outputs to check their values. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
@@ -207,6 +208,7 @@ type TestSuiteOptions = {
     coverageExclude:RegExp[]; // Same logic as the "--coverage-exclude" option
     coverageNoBranches:boolean; // Same logic as the "--coverage-no-branches" option
     coverageNoSourceMaps:boolean; // Same logic as the "--coverage-no-source-maps" option
+    coverageTarget:number; // Same logic as the "--coverage-target" option
     snapshotsFolder:string; // Folder to place the snapshots. Defaults to "./snapshots"
     confirmSnapshots:boolean; // To confirm the new snapshots, as stated in the "Snapshots" section
     reviewSnapshots:boolean; // To review all the snapshots, as stated in the "Snapshots" section

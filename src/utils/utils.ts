@@ -176,6 +176,19 @@ export function getTestOptions(argv = process.argv) {
     if (coverageNoSourceMaps) {
         options.coverageNoSourceMaps = true;
     }
+    const coverageTarget = args.get("coverage-target");
+    if (coverageTarget != null) {
+        if (coverageTarget.length === 0) {
+            throw new Error(`--coverage-target needs a value`);
+        } else if (coverageTarget.length > 1 || !coverageTarget[0]) {
+            throw new Error(`Only one --coverage-target argument is allowed`);
+        }
+        const targetNumber = Number(coverageTarget[0]);
+        if (!Number.isFinite(targetNumber)) {
+            throw new Error(`--coverage-target must be a number: ${coverageTarget[0]}`);
+        }
+        options.coverageTarget = targetNumber;
+    }
     return options;
 }
 export function getCallSites() {

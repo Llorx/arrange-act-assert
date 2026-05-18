@@ -47,6 +47,9 @@ export class TestSuite {
             ...Utils.getTestSuiteOptions(),
             ...options
         };
+        if (this.options.coverageTarget != null && this.options.coverageTarget > 0) {
+            this.options.coverage = true;
+        }
         if (this.options.summaryOnly && !options.formatter) {
             this.options.formatter = new DefaultFormatter(undefined, true);
         }
@@ -74,16 +77,18 @@ export class TestSuite {
         for (const error of result.errors) {
             console.error(error);
         }
-        this.options.formatter.formatSummary && await this.options.formatter.formatSummary(this._root.summary, {
+        const formatResult = this.options.formatter.formatSummary && await this.options.formatter.formatSummary(this._root.summary, {
             excludeFiles: result.files,
             exclude: this.options.exclude,
             branches: !this.options.coverageNoBranches,
-            sourceMaps: !this.options.coverageNoSourceMaps
+            sourceMaps: !this.options.coverageNoSourceMaps,
+            target: this.options.coverageTarget
         });
+        const formatterOk = !formatResult || formatResult.ok;
         return {
             files: result.files,
             runErrors: result.errors,
-            ok: result.errors.length === 0 && this._root.summary.total.error === 0,
+            ok: result.errors.length === 0 && this._root.summary.total.error === 0 && formatterOk,
             summary: this._root.summary
         };
     }

@@ -52,7 +52,8 @@ export type FormatterOptions = {
     exclude:RegExp[];
     branches:boolean;
 };
+export type FormatSummaryResult = void | { ok:boolean };
 export interface Formatter {
-    formatSummary?(summary:Summary, coverageOptions:CoverageOptions):void|Promise<void>;
+    formatSummary?(summary:Summary, coverageOptions:CoverageOptions):FormatSummaryResult|Promise<FormatSummaryResult>;
     format(fileId:string, msg:Messages):void;
 }

@@ -144,6 +144,7 @@ export type CoverageOptions = {
     exclude:RegExp[];
     branches:boolean;
     sourceMaps:boolean;
+    target?:number;
 };
 export async function processCoverage(coverage:Inspector.Profiler.ScriptCoverage[], options:CoverageOptions):Promise<CoverageEntry[]> {
     const fileManager = new FileManager();

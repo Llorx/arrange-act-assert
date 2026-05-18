@@ -66,6 +66,7 @@ export type TestOptions = {
     coverageExclude?:RegExp[];
     coverageNoBranches?:boolean;
     coverageNoSourceMaps?:boolean;
+    coverageTarget?:number;
 };
 
 export type { Test };
@@ -496,6 +497,7 @@ class Root extends Test {
             coverageExclude: [],
             coverageNoBranches: false,
             coverageNoSourceMaps: false,
+            coverageTarget: 0,
             ...options
         });
         if (notifyParentProcess) {
@@ -654,6 +656,9 @@ export function isMessage(msg:unknown):msg is { data: Messages } {
 }
 
 const testOptions:Partial<TestOptions> = process.env.AAA_TEST_OPTIONS ? JSON.parse(process.env.AAA_TEST_OPTIONS) : getTestOptions();
+if (testOptions.coverageTarget != null && testOptions.coverageTarget > 0) {
+    testOptions.coverage = true;
+}
 let root:Root|null;
 const files = new Set<string>();
 function addTestFiles() {
@@ -674,12 +679,16 @@ function getRoot() {
                 });
             }
             if (myRoot.formatter && myRoot.formatter.formatSummary) {
-                myRoot.formatter.formatSummary(myRoot.summary, {
+                const formatResult = await myRoot.formatter.formatSummary(myRoot.summary, {
                     excludeFiles: Array.from(files),
                     exclude: testOptions.coverageExclude || [/\/node_modules\//i],
                     branches: !testOptions.coverageNoBranches,
-                    sourceMaps: !testOptions.coverageNoSourceMaps
+                    sourceMaps: !testOptions.coverageNoSourceMaps,
+                    target: testOptions.coverageTarget
                 });
+                if (formatResult && !formatResult.ok) {
+                    process.exitCode = 1;
+                }
             }
             root = null; // Reset root, just in case another test is added in this process, so root restarts again
         });

@@ -2,7 +2,7 @@ import * as Util from "util";
 import * as Path from "path";
 import type * as Inspector from "inspector";
 
-import { TestInfo, Messages, MessageType, Formatter, TestType } from "."
+import { TestInfo, Messages, MessageType, Formatter, TestType, FormatSummaryResult } from "."
 import { Summary, SummaryResult } from "../testRunner/testRunner";
 import mergeCoverage from "../coverage/merge";
 import { getCommonBasePath } from "../utils/utils";
@@ -275,8 +275,14 @@ type CoverageRow = {
         total:number;
         uncovered:number;
         ratio:number;
+        partialBranches:number;
     }|null;
     uncoveredLines:string;
+};
+type CoverageTotals = {
+    totalLines:number;
+    totalUncoveredLines:number;
+    totalPartialBranches:number;
 };
 export class DefaultFormatter implements Formatter {
     private readonly _root = new Root(null);
@@ -290,6 +296,7 @@ export class DefaultFormatter implements Formatter {
     private _processCoverageFile(padding:string, file:PathCoverageEntry, rows:CoverageRow[]) {
         const uncoveredLines:string[] = [];
         let uncoveredLinesCount = 0;
+        let partialBranches = 0;
         let pendingUncovered:number|null = null;
         for (let i = 0; i < file.lines.length; i++) {
             const line = file.lines[i]!;
@@ -313,6 +320,7 @@ export class DefaultFormatter implements Formatter {
                 pendingUncovered = null;
             }
             if (uncoveredBranches.length > 0) {
+                partialBranches++;
                 uncoveredLines.push(`${Style.Yellow}${i + 1}${Style.Reset}:[${uncoveredBranches.join("|")}]`);
             }
         }
@@ -325,7 +333,8 @@ export class DefaultFormatter implements Formatter {
             lines: {
                 total: file.lines.length,
                 uncovered: uncoveredLinesCount,
-                ratio: (file.lines.length - uncoveredLinesCount) / file.lines.length
+                ratio: (file.lines.length - uncoveredLinesCount) / file.lines.length,
+                partialBranches: partialBranches
             },
             uncoveredLines: uncoveredLines.join(", ")
         });
@@ -352,7 +361,7 @@ export class DefaultFormatter implements Formatter {
         return _rows;
     }
     
-    private async _formatCoverage(coverageOptions:CoverageOptions) {
+    private async _formatCoverage(coverageOptions:CoverageOptions):Promise<CoverageTotals|null> {
         const coverages:CoverageEntry[][] = [];
         for (const coverage of this.coverage) {
             coverages.push(await processCoverage(coverage, coverageOptions));
@@ -376,15 +385,17 @@ export class DefaultFormatter implements Formatter {
             this._out(`┏━${"━".repeat(maxLength.file)}━┳━${"━".repeat(maxLength.lines)}━┳━━━ ━━  ━━   ──    ─`);
             this._out(`┃ ${TableTitles.File.padEnd(maxLength.file, " ")} ┃ ${TableTitles.Lines.padEnd(maxLength.lines, " ")} ┃ ${TableTitles.UncoveredLines}`);
             this._out(`┣━${"━".repeat(maxLength.file)}━╋━${"━".repeat(maxLength.lines)}━╋━━━ ━━  ━━   ──    ─`);
-            
+
             let totalLines = 0;
             let totalUncoveredLines = 0;
+            let totalPartialBranches = 0;
             for (const row of rows) {
                 const color = row.lines ? row.lines.ratio >= 0.9 ? Style.Green : row.lines.ratio >= 0.5 ? Style.Yellow : Style.Red : "";
                 const lines = row.lines != null ? `${Math.floor(row.lines.ratio * 100)} %` : "";
                 if (row.lines != null) {
                     totalLines += row.lines.total;
                     totalUncoveredLines += row.lines.uncovered;
+                    totalPartialBranches += row.lines.partialBranches;
                 }
                 this._out(`┃ ${row.padding}${color}${row.file.padEnd(maxLength.file - row.padding.length, " ")}${Style.Reset} ┃ ${color}${lines.padStart(maxLength.lines, " ")}${Style.Reset} ┃ ${row.uncoveredLines}`);
             }
@@ -393,9 +404,11 @@ export class DefaultFormatter implements Formatter {
             const lines = `${Math.floor(((totalLines - totalUncoveredLines) / totalLines) * 100)} %`;
             this._out(`┃ ${TableTitles.Total.padStart(maxLength.file, " ")} ┃ ${lines.padStart(maxLength.lines, " ")} ┃`);
             this._out(`┗━${"━".repeat(maxLength.file)}━┻━${"━".repeat(maxLength.lines)}━┛`);
+            return { totalLines, totalUncoveredLines, totalPartialBranches };
         }
+        return null;
     }
-    async formatSummary(summary:Summary, coverageOptions:CoverageOptions) {
+    async formatSummary(summary:Summary, coverageOptions:CoverageOptions):Promise<FormatSummaryResult> {
         this._out(`\n${Style.Bold}Summary:${Style.Reset}`);
         this._out(formatSummaryResult("Asserts", summary.assert));
         this._out(formatSummaryResult("Tests", summary.test));
@@ -403,7 +416,7 @@ export class DefaultFormatter implements Formatter {
             this._out(formatSummaryResult("Describes", summary.describe));
         }
         this._out(formatSummaryResult("Total", summary.total));
-        await this._formatCoverage(coverageOptions);
+        const coverageTotals = await this._formatCoverage(coverageOptions);
         for (const {fileId, id, error} of summary.failed) {
             const test = this.tests.get(getUid(fileId, id));
             if (test && test.childrenOk) {
@@ -423,6 +436,23 @@ export class DefaultFormatter implements Formatter {
                 this._out(error);
             }
         }
+        let ok = true;
+        if (coverageTotals && coverageOptions.target != null && coverageOptions.target > 0) {
+            const percentage = (coverageTotals.totalLines - coverageTotals.totalUncoveredLines) / coverageTotals.totalLines * 100;
+            let reason:string|null = null;
+            if (coverageOptions.target >= 100) {
+                if (coverageTotals.totalUncoveredLines > 0 || coverageTotals.totalPartialBranches > 0) {
+                    reason = `${coverageTotals.totalUncoveredLines} uncovered line(s), ${coverageTotals.totalPartialBranches} partial branch(es)`;
+                }
+            } else if (percentage < coverageOptions.target) {
+                reason = `${percentage.toFixed(2)}% < ${coverageOptions.target}%`;
+            }
+            if (reason) {
+                ok = false;
+                this._out(`${Style.Yellow}[X]----- - - - -  -  -   -${Style.Reset}`);
+                this._out(`${Style.Red}X Coverage target not met:${Style.Reset} ${reason}`);
+            }
+        }
         if (summary.test.count === 0) {
             // TODO: Test no tests run
             throw new Error("No test run");
@@ -431,6 +461,7 @@ export class DefaultFormatter implements Formatter {
             // TODO: Test no asserts run
             throw new Error("No asserts run");
         }
+        return { ok };
     }
     format(fileId:string, msg:Messages):void {
         switch (msg.type) {
