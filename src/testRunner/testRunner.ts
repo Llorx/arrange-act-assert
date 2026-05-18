@@ -110,7 +110,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
     private _finished = false;
     private _ended = false;
     private _afters:(()=>void)[] = [];
-    private _afterTest:(()=>void)[] = [];
+    protected _afterTest:(()=>void)[] = [];
     private _testErrors:{test:Test, error:unknown}[] = [];
     readonly id = ids++;
     private _addAfter:After = (data, cb) => {
@@ -434,7 +434,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
             throw doneError.error;
         }
     }
-    private async _runAfterTests():Promise<void> {
+    protected async _runAfterTests():Promise<void> {
         let doneError:RunMonad<any>|null = null;
         for (const cb of this._afterTest.splice(0)) {
             const afterResult = await functionRunner("AFTER TEST", cb, []);
@@ -473,8 +473,11 @@ class Root extends Test {
         failed: []
     };
     private _summaryMap = new Map<string, TestInfo>();
+    readonly notifyParentProcess:((msg:{type:"testRunner", data:Messages})=>void)|null = null;
+    private _pendingSends:{count:number, promise:ResolvablePromise}|null = null;
     constructor(
-        readonly notifyParentProcess:((msg:{type:"testRunner", data:Messages})=>void)|null, options?:TestOptions) {
+        notifyParentProcess:((msg:{type:"testRunner", data:Messages}, sendHandle?:undefined, options?:undefined, callback?:(err:Error|null)=>void)=>boolean)|null,
+        options?:TestOptions) {
         super({
             send: msg => this.processMessage("", msg),
             readFile: file => Fs.promises.readFile(file),
@@ -495,6 +498,44 @@ class Root extends Test {
             coverageNoSourceMaps: false,
             ...options
         });
+        if (notifyParentProcess) {
+            this.notifyParentProcess = (msg) => {
+                if (this._pendingSends == null) {
+                    this._pendingSends = { count: 0, promise: resolvablePromise() };
+                }
+                const pending = this._pendingSends;
+                pending.count++;
+                const onWritten = () => {
+                    if (--pending.count === 0) {
+                        this._pendingSends = null;
+                        pending.promise.resolve();
+                    }
+                };
+                try {
+                    notifyParentProcess(msg, undefined, undefined, onWritten);
+                } catch (e) {
+                    onWritten();
+                }
+            };
+        }
+    }
+    protected override async _runAfterTests():Promise<void> {
+        let doneError:RunMonad<any>|null = null;
+        const afters = this._afterTest.splice(0);
+        for (const cb of afters) {
+            // Drain pending IPC sends before each after callback so messages
+            // are flushed before the user (potentially) terminates the process.
+            while (this._pendingSends) {
+                await this._pendingSends.promise;
+            }
+            const afterResult = await functionRunner("AFTER TEST", cb, []);
+            if (afterResult.run && !afterResult.ok && !doneError) {
+                doneError = afterResult;
+            }
+        }
+        if (doneError && doneError.run && !doneError.ok) {
+            throw doneError.error;
+        }
     }
     processMessage(fileId:string, msg:Messages) {
         if ("id" in msg && msg.id === this.id) {
