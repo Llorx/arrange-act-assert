@@ -14,22 +14,28 @@ test.describe("spawnTestFile", (test) => {
         }
     });
     test("Should fail when exit code", {
-        ACT() {
-            return monad(() => spawnTestFile(Path.join(__dirname, "not_test_file.js"), {prefix:[]}, () => {}));
+        ARRANGE() {
+            return Path.join(__dirname, "not_test_file.js");
         },
-        ASSERT(res) {
+        ACT(path) {
+            return monad(() => spawnTestFile(path, {prefix:[]}, () => {}));
+        },
+        ASSERT(res, path) {
             res.should.error({
-                message: /Cannot find module/
+                message: new RegExp(`Test file '${path.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")}'.*Cannot find module`, "s")
             });
         }
     });
     test("Should spawn with a prefix", {
-        ACT() {
-            return monad(() => spawnTestFile(Path.join(__dirname, "not_test_file.js"), {prefix:["--aaa-prefix-test"]}, () => {}));
+        ARRANGE() {
+            return Path.join(__dirname, "not_test_file.js");
         },
-        ASSERT(res) {
+        ACT(path) {
+            return monad(() => spawnTestFile(path, {prefix:["--aaa-prefix-test"]}, () => {}));
+        },
+        ASSERT(res, path) {
             res.should.error({
-                message: /bad option: --aaa-prefix-test/
+                message: new RegExp(`Test file '${path.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")}'.*bad option: --aaa-prefix-test`, "s")
             });
         }
     });

@@ -41,7 +41,7 @@ export function spawnTestFile(path:string, options:SpawnTestFileOptions, cb:(msg
         testProcess.on("error", reject);
         testProcess.on("close", () => {
             if (testProcess.exitCode != 0) {
-                reject(new Error(`Test file ended with exit code: ${testProcess.exitCode} and outputs:\n- stderr:\n${Buffer.concat(err).toString()}\n- stdout:\n${Buffer.concat(out).toString()}`));
+                reject(new Error(`Test file '${path}' ended with exit code: ${testProcess.exitCode} and outputs:\n- stdout:\n${Buffer.concat(out).toString()}\n- stderr:\n${Buffer.concat(err).toString()}`));
             } else {
                 resolve();
             }
