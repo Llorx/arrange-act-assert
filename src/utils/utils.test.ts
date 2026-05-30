@@ -184,6 +184,54 @@ test.describe("utils", (test) => {
                 });
             }
         });
+        test("should parse a valid timeout value", {
+            ACT() {
+                return getTestOptions(["--timeout", "1000"]);
+            },
+            ASSERT(res) {
+                Assert.deepStrictEqual(res, { timeout: 1000 });
+            }
+        });
+        test("should error on empty timeout argument", {
+            ACT() {
+                return monad(() => getTestOptions(["--timeout"]));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /--timeout needs a value/
+                });
+            }
+        });
+        test("should error on multiple timeout values", {
+            ACT() {
+                return monad(() => getTestOptions(["--timeout", "10", "20"]));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /one --timeout argument/
+                });
+            }
+        });
+        test("should error on a non-numeric timeout", {
+            ACT() {
+                return monad(() => getTestOptions(["--timeout", "abc"]));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /--timeout must be a number >= 0/
+                });
+            }
+        });
+        test("should error on a negative timeout", {
+            ACT() {
+                return monad(() => getTestOptions(["--timeout", "-5"]));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /--timeout must be a number >= 0/
+                });
+            }
+        });
     });
     test.describe("processArgs", (test) => {
         test("should process args with equal (=)", {

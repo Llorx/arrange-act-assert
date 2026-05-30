@@ -1874,4 +1874,84 @@ test.describe("testRunner", (test) => {
             }
         });
     });
+    test.describe("timeout", (test) => {
+        test("fails a hanging test instead of draining the process", {
+            ARRANGE(after) {
+                return afterNewRoot(after, { timeout: 50 });
+            },
+            async ACT(myTest) {
+                return await monad(() => myTest.test("hangs", {
+                    ACT() {
+                        // Never settles and keeps no timer/IO alive. Without a
+                        // per-test timeout the event loop would drain and the
+                        // process would exit 0 as if everything passed.
+                        return new Promise<void>(() => {});
+                    },
+                    ASSERT() {
+                        // Never reached.
+                    }
+                }));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /timed out after 50ms/
+                });
+            }
+        });
+        test("does not time out a test that completes in time", {
+            ARRANGE(after) {
+                return afterNewRoot(after, { timeout: 1000 });
+            },
+            async ACT(myTest) {
+                return await monad(() => myTest.test("quick", {
+                    async ACT() {
+                        await setTimeout(1);
+                    },
+                    ASSERT() {
+                        return "ok";
+                    }
+                }));
+            },
+            ASSERT(res) {
+                res.should.ok();
+            }
+        });
+        test("a timeout of 0 disables the per-test timeout", {
+            ARRANGE(after) {
+                return afterNewRoot(after, { timeout: 0 });
+            },
+            async ACT(myTest) {
+                return await monad(() => myTest.test("quick", {
+                    async ACT() {
+                        await setTimeout(1);
+                    },
+                    ASSERT() {
+                        return "ok";
+                    }
+                }));
+            },
+            ASSERT(res) {
+                res.should.ok();
+            }
+        });
+        test("includes the description path in the timeout error", {
+            ARRANGE(after) {
+                return afterNewRoot(after, { timeout: 30 });
+            },
+            async ACT(myTest) {
+                return await monad(() => myTest.describe("outer", test => {
+                    return test.test("inner", {
+                        ACT() {
+                            return new Promise<void>(() => {});
+                        }
+                    });
+                }));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /Test "outer > inner" timed out after 30ms/
+                });
+            }
+        });
+    });
 });

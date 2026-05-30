@@ -23,7 +23,8 @@ export function spawnTestFile(path:string, options:SpawnTestFileOptions, cb:(msg
                     reviewSnapshots: options.reviewSnapshots,
                     regenerateSnapshots: options.regenerateSnapshots,
                     coverage: options.coverage,
-                    coverageNoSourceMaps: options.coverageNoSourceMaps
+                    coverageNoSourceMaps: options.coverageNoSourceMaps,
+                    timeout: options.timeout
                 })
             },
             stdio: ["ignore", "pipe", "pipe", "ipc"],

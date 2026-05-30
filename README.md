@@ -171,6 +171,7 @@ The `aaa` cli command accepts these options:
 - `--snapshots-review`/`--review-snapshots`: Show all the snapshot outputs to check their values. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
 - `--snapshots-regenerate`/`--regenerate-snapshots`: Regenerate all snapshot files with new ones. More info in the **[Snapshots](https://github.com/Llorx/arrange-act-assert?tab=readme-ov-file#snapshots)** section.
 - `--summary`: Suppress per-test output and only print the final summary (errors and coverage are still included in the summary).
+- `--timeout NUMBER`: Per-test timeout in milliseconds. If a test's body (`ARRANGE`/`ACT`/`ASSERT`/`SNAPSHOT`) does not settle within this time, it is failed with a timeout error instead of letting the process hang or silently exit. Applies to each individual test, not to `describe` blocks. Defaults to `300000` (5 minutes). Set to `0` to disable.
 
 Alternatively, you can import the `TestSuite` and run your tests programatically:
 ```typescript
@@ -212,6 +213,7 @@ type TestSuiteOptions = {
     snapshotsFolder:string; // Folder to place the snapshots. Defaults to "./snapshots"
     confirmSnapshots:boolean; // To confirm the new snapshots, as stated in the "Snapshots" section
     reviewSnapshots:boolean; // To review all the snapshots, as stated in the "Snapshots" section
+    timeout:number; // Same logic as the "--timeout" option. Defaults to 300000 (5 minutes); 0 disables
 };
 
 // The result

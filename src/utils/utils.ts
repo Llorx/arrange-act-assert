@@ -189,6 +189,19 @@ export function getTestOptions(argv = process.argv) {
         }
         options.coverageTarget = targetNumber;
     }
+    const timeout = args.get("timeout");
+    if (timeout != null) {
+        if (timeout.length === 0) {
+            throw new Error(`--timeout needs a value`);
+        } else if (timeout.length > 1 || !timeout[0]) {
+            throw new Error(`Only one --timeout argument is allowed`);
+        }
+        const timeoutNumber = Number(timeout[0]);
+        if (!Number.isFinite(timeoutNumber) || timeoutNumber < 0) {
+            throw new Error(`--timeout must be a number >= 0: ${timeout[0]}`);
+        }
+        options.timeout = timeoutNumber;
+    }
     return options;
 }
 export function getCallSites() {

@@ -67,6 +67,7 @@ export type TestOptions = {
     coverageNoBranches?:boolean;
     coverageNoSourceMaps?:boolean;
     coverageTarget?:number;
+    timeout?:number;
 };
 
 export type { Test };
@@ -130,7 +131,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
                     type: MessageType.START
                 });
                 if (typeof this.data === "object") {
-                    await this._runTest(this.data);
+                    await this._withTimeout(this._runTest(this.data));
                 } else {
                     await this._runDescribe(this.data);
                 }
@@ -376,6 +377,30 @@ class Test<ARR = any, ACT = any, ASS = any> {
         }
         return functionRunner("SNAPSHOT", null, []); // Always return a RunMonad
     }
+    private _withTimeout<T>(promise:Promise<T>):Promise<T> {
+        const timeout = this._options.timeout;
+        if (!(timeout > 0)) {
+            return promise;
+        }
+        return new Promise<T>((resolve, reject) => {
+            // A real (non-unref'd) timer keeps the event loop alive while the
+            // test body runs. If the test hangs (e.g. an awaited promise that
+            // never settles), the loop would otherwise drain and the process
+            // would exit as if everything passed. The timer guarantees the hang
+            // surfaces as a failed test instead of a silent premature exit.
+            const timer = setTimeout(() => {
+                const path = this._options.descriptionPath.join(" > ");
+                reject(new Error(`Test${path ? ` "${path}"` : ""} timed out after ${timeout}ms`));
+            }, timeout);
+            promise.then(value => {
+                clearTimeout(timer);
+                resolve(value);
+            }, error => {
+                clearTimeout(timer);
+                reject(error);
+            });
+        });
+    }
     private async _runTest(test:TestInterface<ARR, ACT, ASS>) {
         const arrangeResult = await functionRunner("ARRANGE", test.ARRANGE || null, [this._addAfter]);
         if (arrangeResult.run && !arrangeResult.ok) {
@@ -498,6 +523,7 @@ class Root extends Test {
             coverageNoBranches: false,
             coverageNoSourceMaps: false,
             coverageTarget: 0,
+            timeout: 5 * 60 * 1000, // 5 minutes. Set to 0 to disable.
             ...options
         });
         if (notifyParentProcess) {
