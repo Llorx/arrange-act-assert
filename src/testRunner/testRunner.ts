@@ -104,6 +104,31 @@ function formatData(data:unknown) {
 }
 
 let ids = 0;
+
+// Tests whose body is currently running. A test is added right before its body
+// (ARRANGE/ACT/ASSERT/SNAPSHOT) runs and removed as soon as the body settles,
+// before its `after` callbacks. The per-test timeout timer is `unref`'d so it
+// never keeps the process alive on its own; instead, this set is the safety net
+// that catches a process draining (or being terminated) while a test is still
+// in flight, turning a silent premature exit into a reported failure.
+const pendingTests = new Set<Test>();
+let exitHandlerRegistered = false;
+function registerPendingTestsExitHandler() {
+    if (exitHandlerRegistered || typeof process === "undefined" || typeof process.on !== "function") {
+        return;
+    }
+    exitHandlerRegistered = true;
+    process.on("exit", code => {
+        if (pendingTests.size > 0 && code === 0) {
+            process.exitCode = 1;
+            console.error(`Process exited before ${pendingTests.size} test(s) finished running:`);
+            for (const test of pendingTests) {
+                console.error(`  - ${test.formatPath()}`);
+            }
+        }
+    });
+}
+
 class Test<ARR = any, ACT = any, ASS = any> {
     private _promise = resolvablePromise();
     private _pendingPromise:ResolvablePromise|null = null;
@@ -130,10 +155,18 @@ class Test<ARR = any, ACT = any, ASS = any> {
                     id: this.id,
                     type: MessageType.START
                 });
-                if (typeof this.data === "object") {
-                    await this._withTimeout(this._runTest(this.data));
-                } else {
-                    await this._runDescribe(this.data);
+                pendingTests.add(this);
+                try {
+                    if (typeof this.data === "object") {
+                        await this._withTimeout(this._runTest(this.data));
+                    } else {
+                        await this._runDescribe(this.data);
+                    }
+                } finally {
+                    // Remove before the `after` callbacks run: the test body is
+                    // done, so a hanging/terminating `after` must not make this
+                    // test count as unfinished.
+                    pendingTests.delete(this);
                 }
             } finally {
                 try {
@@ -172,6 +205,9 @@ class Test<ARR = any, ACT = any, ASS = any> {
     }
     private _isDescribe() {
         return typeof this.data !== "object";
+    }
+    formatPath() {
+        return this._options.descriptionPath.join(" > ") || "<root>";
     }
     private _getAsserts() {
         if (typeof this.data === "object" && this.data.ASSERTS) {
@@ -383,15 +419,19 @@ class Test<ARR = any, ACT = any, ASS = any> {
             return promise;
         }
         return new Promise<T>((resolve, reject) => {
-            // A real (non-unref'd) timer keeps the event loop alive while the
-            // test body runs. If the test hangs (e.g. an awaited promise that
-            // never settles), the loop would otherwise drain and the process
-            // would exit as if everything passed. The timer guarantees the hang
-            // surfaces as a failed test instead of a silent premature exit.
+            // While the event loop is alive (other tests running, IPC channel
+            // open, pending IO...), this timer fires and fails the hung test
+            // cleanly with a timeout error. When the test is the only thing
+            // left, the timer is `unref`'d (below) so the process can drain and
+            // the `process.on("exit")` safety net reports it as unfinished.
             const timer = setTimeout(() => {
                 const path = this._options.descriptionPath.join(" > ");
                 reject(new Error(`Test${path ? ` "${path}"` : ""} timed out after ${timeout}ms`));
             }, timeout);
+            // Never let the timeout timer keep the process alive on its own. If
+            // the test is the only thing left running, the process should drain
+            // and the `process.on("exit")` safety net reports it as unfinished.
+            timer.unref();
             promise.then(value => {
                 clearTimeout(timer);
                 resolve(value);
@@ -748,6 +788,7 @@ function buildTestFunction(myTest:Test|null):TestFunction {
 
 export function newRoot(options?:TestOptions) {
     addTestFiles();
+    registerPendingTestsExitHandler();
     // Check notifyParentProcess inside of the function so can be reset during testing
     const notifyParentProcess = process.env.AAA_TEST_FILE && process.send && process.send.bind(process) || null;
     return root = new Root(notifyParentProcess, options);

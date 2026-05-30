@@ -22,4 +22,14 @@ function run() {
 }
 if (process.env.AAA_RUN) {
     run();
+} else if (process.env.AAA_HANG) {
+    // A test whose body never settles. The process should drain and the
+    // `process.on("exit")` safety net must report it as unfinished.
+    test.describe("group", t => {
+        t.test("hanging test", {
+            ACT() {
+                return new Promise<void>(() => {});
+            }
+        });
+    });
 }

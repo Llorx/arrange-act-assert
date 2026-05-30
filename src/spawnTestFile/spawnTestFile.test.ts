@@ -26,6 +26,18 @@ test.describe("spawnTestFile", (test) => {
             });
         }
     });
+    test("Should fail with unfinished tests when the process drains mid-test", {
+        ACT(_, after) {
+            process.env.AAA_HANG = "1";
+            after(null, () => delete process.env.AAA_HANG);
+            return monad(() => spawnTestFile(Mock.path, {prefix:[]}, () => {}));
+        },
+        ASSERT(res) {
+            res.should.error({
+                message: /Process exited before 1 test\(s\) finished running:[\s\S]*group > hanging test/
+            });
+        }
+    });
     test("Should spawn with a prefix", {
         ARRANGE() {
             return Path.join(__dirname, "not_test_file.js");

@@ -1875,16 +1875,18 @@ test.describe("testRunner", (test) => {
         });
     });
     test.describe("timeout", (test) => {
-        test("fails a hanging test instead of draining the process", {
+        test("fails a hanging test with a timeout error while the loop is alive", {
             ARRANGE(after) {
+                // Keep the loop alive so the unref'd timeout timer fires
+                // deterministically (instead of the process draining first).
+                after(setInterval(() => {}, 1000), timer => clearInterval(timer));
                 return afterNewRoot(after, { timeout: 50 });
             },
             async ACT(myTest) {
                 return await monad(() => myTest.test("hangs", {
                     ACT() {
-                        // Never settles and keeps no timer/IO alive. Without a
-                        // per-test timeout the event loop would drain and the
-                        // process would exit 0 as if everything passed.
+                        // Never settles. With the loop kept alive, the per-test
+                        // timeout fires and fails the test.
                         return new Promise<void>(() => {});
                     },
                     ASSERT() {
@@ -1936,6 +1938,7 @@ test.describe("testRunner", (test) => {
         });
         test("includes the description path in the timeout error", {
             ARRANGE(after) {
+                after(setInterval(() => {}, 1000), timer => clearInterval(timer));
                 return afterNewRoot(after, { timeout: 30 });
             },
             async ACT(myTest) {
