@@ -1936,7 +1936,7 @@ test.describe("testRunner", (test) => {
                 res.should.ok();
             }
         });
-        test("includes the description path in the timeout error", {
+        test("names the timed-out callback section in the error", {
             ARRANGE(after) {
                 after(setInterval(() => {}, 1000), timer => clearInterval(timer));
                 return afterNewRoot(after, { timeout: 30 });
@@ -1952,8 +1952,94 @@ test.describe("testRunner", (test) => {
             },
             ASSERT(res) {
                 res.should.error({
-                    message: /Test "outer > inner" timed out after 30ms/
+                    message: /ACT timed out after 30ms/
                 });
+            }
+        });
+        test("times out a hanging ARRANGE callback", {
+            ARRANGE(after) {
+                after(setInterval(() => {}, 1000), timer => clearInterval(timer));
+                return afterNewRoot(after, { timeout: 50 });
+            },
+            async ACT(myTest) {
+                return await monad(() => myTest.test("hangs in arrange", {
+                    ARRANGE() {
+                        return new Promise<void>(() => {});
+                    },
+                    ACT() {},
+                    ASSERT() {}
+                }));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /ARRANGE timed out after 50ms/
+                });
+            }
+        });
+        test("times out a hanging ASSERT callback", {
+            ARRANGE(after) {
+                after(setInterval(() => {}, 1000), timer => clearInterval(timer));
+                return afterNewRoot(after, { timeout: 50 });
+            },
+            async ACT(myTest) {
+                return await monad(() => myTest.test("hangs in assert", {
+                    ACT() {
+                        return 1;
+                    },
+                    ASSERT() {
+                        return new Promise<void>(() => {});
+                    }
+                }));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /ASSERT timed out after 50ms/
+                });
+            }
+        });
+        test("times out a hanging after callback", {
+            ARRANGE(after) {
+                after(setInterval(() => {}, 1000), timer => clearInterval(timer));
+                return afterNewRoot(after, { timeout: 50 });
+            },
+            async ACT(myTest) {
+                return await monad(() => myTest.test("hangs in after", {
+                    ARRANGE(after) {
+                        after(null, () => new Promise<void>(() => {}));
+                    },
+                    ACT() {},
+                    ASSERT() {}
+                }));
+            },
+            ASSERT(res) {
+                res.should.error({
+                    message: /AFTER timed out after 50ms/
+                });
+            }
+        });
+        test("applies the timeout per callback, not to the whole test", {
+            ARRANGE(after) {
+                return afterNewRoot(after, { timeout: 100 });
+            },
+            async ACT(myTest) {
+                // Each section sleeps under the 100ms budget, but together they
+                // exceed it. A per-callback timeout lets the test pass; the old
+                // per-test timeout would have failed it.
+                return await monad(() => myTest.test("slow but within per-callback budget", {
+                    async ARRANGE() {
+                        await setTimeout(40);
+                    },
+                    async ACT() {
+                        await setTimeout(40);
+                        return "act";
+                    },
+                    async ASSERT() {
+                        await setTimeout(40);
+                    }
+                }));
+            },
+            ASSERT(res) {
+                res.should.ok();
             }
         });
     });

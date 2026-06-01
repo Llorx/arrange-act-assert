@@ -103,6 +103,7 @@ function formatData(data:unknown) {
     return msg;
 }
 
+const DEFAULT_TIMEOUT = 5 * 60 * 1000; // 5 minutes. Set the timeout option to 0 to disable.
 let ids = 0;
 
 // Tests whose body is currently running. A test is added right before its body
@@ -144,7 +145,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
         this._afters.unshift(() => cb(data));
         return data;
     };
-    constructor(private _context:TestContext, private _options:FullTestOptions, readonly data?:TestInterface<ARR, ACT, ASS>|DescribeCallback) {}
+    constructor(private _context:TestContext, protected _options:FullTestOptions, readonly data?:TestInterface<ARR, ACT, ASS>|DescribeCallback) {}
     async run() {
         try {
             if (this._options.coverage) {
@@ -158,7 +159,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
                 pendingTests.add(this);
                 try {
                     if (typeof this.data === "object") {
-                        await this._withTimeout(this._runTest(this.data));
+                        await this._runTest(this.data);
                     } else {
                         await this._runDescribe(this.data);
                     }
@@ -289,6 +290,9 @@ class Test<ARR = any, ACT = any, ASS = any> {
         }
     }
     private async _runDescribe(cb?:DescribeCallback) {
+        // No timeout: a describe legitimately stays open while its subtests run
+        // (e.g. `return test.test(...)`), so it must not be timed out — only the
+        // leaf callbacks (ARRANGE/ACT/ASSERT/SNAPSHOT/AFTER) get `this._options.timeout`.
         const result = await functionRunner("describe", cb || null, [buildTestFunction(this), this._addAfter]);
         if (result.run && !result.ok) {
             throw result.error;
@@ -357,7 +361,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
                 id: id,
                 type: MessageType.START
             });
-            const assertResult = await functionRunner("ASSERT", cb, args);
+            const assertResult = await functionRunner("ASSERT", cb, args, this._options.timeout);
             if (assertResult.run) {
                 if (!assertResult.ok) {
                     this._context.send({
@@ -374,7 +378,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
             }
             return assertResult;
         }
-        return functionRunner("ASSERT", null, []); // Always return a RunMonad
+        return functionRunner("ASSERT", null, [], this._options.timeout); // Always return a RunMonad
     }
     private async _runSnapshot<ARGS extends any[], RES>(cb:((...args:ARGS)=>RES)|null, args:[...ARGS], description?:string):Promise<RunMonad<Awaited<RES>>> {
         if (cb) {
@@ -396,7 +400,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
                 const result = await cb(...args);
                 await this._checkSnapshot(result, description);
                 return result;
-            }), []);
+            }), [], this._options.timeout);
             if (res.run && !res.ok) {
                 this._context.send({
                     id: id,
@@ -411,42 +415,14 @@ class Test<ARR = any, ACT = any, ASS = any> {
             }
             return res;
         }
-        return functionRunner("SNAPSHOT", null, []); // Always return a RunMonad
-    }
-    private _withTimeout<T>(promise:Promise<T>):Promise<T> {
-        const timeout = this._options.timeout;
-        if (!(timeout > 0)) {
-            return promise;
-        }
-        return new Promise<T>((resolve, reject) => {
-            // While the event loop is alive (other tests running, IPC channel
-            // open, pending IO...), this timer fires and fails the hung test
-            // cleanly with a timeout error. When the test is the only thing
-            // left, the timer is `unref`'d (below) so the process can drain and
-            // the `process.on("exit")` safety net reports it as unfinished.
-            const timer = setTimeout(() => {
-                const path = this._options.descriptionPath.join(" > ");
-                reject(new Error(`Test${path ? ` "${path}"` : ""} timed out after ${timeout}ms`));
-            }, timeout);
-            // Never let the timeout timer keep the process alive on its own. If
-            // the test is the only thing left running, the process should drain
-            // and the `process.on("exit")` safety net reports it as unfinished.
-            timer.unref();
-            promise.then(value => {
-                clearTimeout(timer);
-                resolve(value);
-            }, error => {
-                clearTimeout(timer);
-                reject(error);
-            });
-        });
+        return functionRunner("SNAPSHOT", null, [], this._options.timeout); // Always return a RunMonad
     }
     private async _runTest(test:TestInterface<ARR, ACT, ASS>) {
-        const arrangeResult = await functionRunner("ARRANGE", test.ARRANGE || null, [this._addAfter]);
+        const arrangeResult = await functionRunner("ARRANGE", test.ARRANGE || null, [this._addAfter], this._options.timeout);
         if (arrangeResult.run && !arrangeResult.ok) {
             throw arrangeResult.error;
         }
-        const actResult = await functionRunner("ACT", "ACT" in test && test.ACT || null, [arrangeResult.data, this._addAfter]);
+        const actResult = await functionRunner("ACT", "ACT" in test && test.ACT || null, [arrangeResult.data, this._addAfter], this._options.timeout);
         let actResultData;
         let snapshotResult;
         if (actResult.run) {
@@ -491,7 +467,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
     private async _runAfters():Promise<void> {
         let doneError:RunMonad<any>|null = null;
         for (const cb of this._afters.splice(0)) {
-            const afterResult = await functionRunner("AFTER", cb, []);
+            const afterResult = await functionRunner("AFTER", cb, [], this._options.timeout);
             if (afterResult.run && !afterResult.ok && !doneError) {
                 doneError = afterResult;
             }
@@ -503,7 +479,7 @@ class Test<ARR = any, ACT = any, ASS = any> {
     protected async _runAfterTests():Promise<void> {
         let doneError:RunMonad<any>|null = null;
         for (const cb of this._afterTest.splice(0)) {
-            const afterResult = await functionRunner("AFTER TEST", cb, []);
+            const afterResult = await functionRunner("AFTER TEST", cb, [], this._options.timeout);
             if (afterResult.run && !afterResult.ok && !doneError) {
                 doneError = afterResult;
             }
@@ -563,7 +539,7 @@ class Root extends Test {
             coverageNoBranches: false,
             coverageNoSourceMaps: false,
             coverageTarget: 0,
-            timeout: 5 * 60 * 1000, // 5 minutes. Set to 0 to disable.
+            timeout: DEFAULT_TIMEOUT,
             ...options
         });
         if (notifyParentProcess) {
@@ -587,6 +563,11 @@ class Root extends Test {
             };
         }
     }
+    async awaitPendingSends():Promise<void> {
+        while (this._pendingSends) {
+            await this._pendingSends.promise;
+        }
+    }
     protected override async _runAfterTests():Promise<void> {
         let doneError:RunMonad<any>|null = null;
         const afters = this._afterTest.splice(0);
@@ -596,7 +577,7 @@ class Root extends Test {
             while (this._pendingSends) {
                 await this._pendingSends.promise;
             }
-            const afterResult = await functionRunner("AFTER TEST", cb, []);
+            const afterResult = await functionRunner("AFTER TEST", cb, [], this._options.timeout);
             if (afterResult.run && !afterResult.ok && !doneError) {
                 doneError = afterResult;
             }
@@ -726,6 +707,9 @@ if (testOptions.coverageTarget != null && testOptions.coverageTarget > 0) {
     testOptions.coverage = true;
 }
 let root:Root|null;
+// Reference to the armed forced-exit timer (see getRoot), kept at module scope
+// so it can be cancelled if a new root starts a new run in this same process.
+let forcedExitTimer:ReturnType<typeof setTimeout>|null = null;
 const files = new Set<string>();
 function addTestFiles() {
     for (const file of getCallSites()) {
@@ -759,12 +743,39 @@ function getRoot() {
             root = null; // Reset root, just in case another test is added in this process, so root restarts again
         });
         setImmediate(() => {
+            // Once `run()` settles, every subtest has been awaited inside it, so
+            // the suite is fully finished. In a spawned child process, leaked
+            // handles — open sockets/timers, or test-body code orphaned by a
+            // per-callback timeout that keeps scheduling work (e.g. a polling
+            // `setTimeout` loop whose condition never flips) — can keep the
+            // event loop alive forever. The process then never drains and the
+            // parent, blocked on our `close` event, hangs. So once the suite is
+            // done (and pending IPC is flushed), arm a final timeout that forces
+            // the process to exit with an error. Like the per-callback timers it
+            // is `unref`'d: a process that drains cleanly exits first and never
+            // trips it; only a process kept alive by a leaked handle reaches it.
+            const finalize = () => {
+                if (!myRoot.notifyParentProcess) {
+                    return;
+                }
+                myRoot.awaitPendingSends().finally(() => {
+                    const timeout = testOptions.timeout ?? DEFAULT_TIMEOUT;
+                    if (!(timeout > 0)) {
+                        return; // Timeouts disabled: respect that, never force-exit.
+                    }
+                    forcedExitTimer = setTimeout(() => {
+                        console.error(`Process did not exit ${timeout}ms after all tests finished — forcing exit (a test likely leaked a timer, socket or other handle).`);
+                        process.exit(process.exitCode || 1);
+                    }, timeout);
+                    forcedExitTimer.unref();
+                });
+            };
             myRoot.run().catch((e) => {
                 process.exitCode = 1111;
                 if (!myRoot.formatter || !myRoot.formatter.formatSummary) {
                     console.error(e);
                 }
-            });
+            }).finally(finalize);
         });
         return myRoot;
     }
@@ -789,6 +800,14 @@ function buildTestFunction(myTest:Test|null):TestFunction {
 export function newRoot(options?:TestOptions) {
     addTestFiles();
     registerPendingTestsExitHandler();
+    // A previous root may have armed the forced-exit timer after finishing its
+    // run. A brand new root means a new run is starting in this same process, so
+    // cancel that pending forced exit — otherwise it would fire mid-run and kill
+    // the new run.
+    if (forcedExitTimer) {
+        clearTimeout(forcedExitTimer);
+        forcedExitTimer = null;
+    }
     // Check notifyParentProcess inside of the function so can be reset during testing
     const notifyParentProcess = process.env.AAA_TEST_FILE && process.send && process.send.bind(process) || null;
     return root = new Root(notifyParentProcess, options);

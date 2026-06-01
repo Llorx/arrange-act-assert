@@ -1,3 +1,5 @@
+import * as Fs from "fs";
+import * as Os from "os";
 import * as Path from "path";
 import * as Assert from "assert";
 
@@ -88,5 +90,48 @@ test.describe("TestSuite", (test) => {
             run(test, "should error a test file", 0, true);
             run(test, "should handle invalid files", 0, false, true);
         });
+    });
+    test("forced exit: a test file that leaks a handle does not hang the suite", {
+        async ARRANGE(after) {
+            const dir = await Fs.promises.mkdtemp(Path.join(Os.tmpdir(), "aaa-leak-"));
+            after(dir, d => Fs.promises.rm(d, { recursive: true, force: true }));
+            // A spawned test whose ACT never settles AND leaks a live interval:
+            // the per-callback timeout fails the test, but the leaked handle then
+            // keeps the child's event loop alive so it can never drain. Only the
+            // forced-exit safety net lets the child exit and the parent resume.
+            const aaaIndex = Path.join(__dirname, "..", "index.js");
+            await Fs.promises.writeFile(Path.join(dir, "leak.test.js"),
+                `const test = require(${JSON.stringify(aaaIndex)}).default;\n` +
+                `test("leaks a handle and hangs", {\n` +
+                `    ACT() { setInterval(() => {}, 1000); return new Promise(() => {}); },\n` +
+                `    ASSERT() {}\n` +
+                `});\n`);
+            return new TestSuite({
+                parallel: 1,
+                include: [/leak\.test/],
+                folder: dir,
+                timeout: 150,
+                // Silent formatter without `formatSummary`: the leak fixture's
+                // ACT times out before any assert runs, and the DefaultFormatter
+                // would throw "No asserts run", masking what we want to observe.
+                formatter: { format() {} }
+            });
+        },
+        async ACT(suite) {
+            // Without the forced exit this never resolves (the child hangs and
+            // its `close` event never fires), so this test would time out.
+            return await suite.run();
+        },
+        ASSERTS: {
+            "run resolves instead of hanging"(res) {
+                Assert.ok(res);
+            },
+            "suite is not ok"(res) {
+                Assert.strictEqual(res.ok, false);
+            },
+            "the leaking file is reported as a run error"(res) {
+                Assert.strictEqual(res.runErrors.length, 1);
+            }
+        }
     });
 });
